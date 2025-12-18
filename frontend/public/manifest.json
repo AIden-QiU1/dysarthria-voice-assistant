@@ -1,0 +1,17 @@
+{
+  "name": "Ranyan - 实时语音识别",
+  "short_name": "Ranyan",
+  "description": "基于 Next.js 和 火山引擎/阿里云 的实时语音识别应用",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
