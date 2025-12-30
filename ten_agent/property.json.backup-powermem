@@ -1,0 +1,203 @@
+{
+  "ten": {
+    "predefined_graphs": [
+      {
+        "name": "voxflame_voice_agent",
+        "auto_start": true,
+        "nodes": [
+          {
+            "type": "extension",
+            "name": "websocket_server",
+            "addon": "websocket_server",
+            "extension_group": "transport",
+            "property": {
+              "port": 8765,
+              "host": "0.0.0.0",
+              "sample_rate": 16000,
+              "channels": 1,
+              "bytes_per_sample": 2
+            }
+          },
+          {
+            "type": "extension",
+            "name": "silero_vad",
+            "addon": "silero_vad_python",
+            "extension_group": "vad",
+            "property": {
+              "threshold": 0.5,
+              "min_speech_duration_ms": 250,
+              "min_silence_duration_ms": 300,
+              "speech_pad_ms": 100
+            }
+          },
+          {
+            "type": "extension",
+            "name": "funasr_asr",
+            "addon": "funasr_asr_python",
+            "extension_group": "asr",
+            "property": {
+              "model": "sensevoice-small",
+              "device": "cuda:0",
+              "language": "auto",
+              "hotwords": ["燃言", "帮我", "喝水", "吃饭", "打电话", "开灯", "关灯"],
+              "vad_model": "fsmn-vad",
+              "punc_model": "ct-punc"
+            }
+          },
+          {
+            "type": "extension",
+            "name": "glm_llm",
+            "addon": "glm_llm_python",
+            "extension_group": "llm",
+            "property": {
+              "api_key": "${env:GLM_API_KEY}",
+              "model": "glm-4-flash",
+              "temperature": 0.7,
+              "max_tokens": 500,
+              "system_prompt": "你是燃言（VoxFlame），一个专为构音障碍患者设计的AI会话支持人。你的目标是帮助用户敢于发声、主动沟通。请用简短、清晰、鼓励的句子回复。避免复杂词汇。对用户表达的理解和肯定。",
+              "tools": [
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "make_phone_call",
+                    "description": "帮助用户拨打电话给联系人",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "contact_name": {"type": "string", "description": "联系人姓名"}
+                      },
+                      "required": ["contact_name"]
+                    }
+                  }
+                },
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "control_smart_device",
+                    "description": "控制智能家居设备（灯光、空调等）",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "device": {"type": "string", "description": "设备名称"},
+                        "action": {"type": "string", "description": "动作（开/关/调整）"}
+                      },
+                      "required": ["device", "action"]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "extension",
+            "name": "cosyvoice_tts",
+            "addon": "cosyvoice_tts_python",
+            "extension_group": "tts",
+            "property": {
+              "api_key": "${env:COSY_TTS_API_KEY}",
+              "model": "cosyvoice-v1",
+              "voice": "中文女",
+              "sample_rate": 16000,
+              "speed": 0.9
+            }
+          },
+          {
+            "type": "extension",
+            "name": "text_webhook",
+            "addon": "text_webhook",
+            "extension_group": "webhook",
+            "property": {
+              "url": "${env:BACKEND_WEBHOOK_URL}",
+              "method": "POST",
+              "headers": "{\"Content-Type\": \"application/json\"}",
+              "timeout": 10,
+              "send_final_only": true,
+              "data_type": "transcribe",
+              "send_on_start": true,
+              "send_on_close": true
+            }
+          }
+        ],
+        "connections": [
+          {
+            "extension_group": "transport",
+            "extension": "websocket_server",
+            "audio_frame": [
+              {
+                "name": "pcm_frame",
+                "dest": [
+                  {
+                    "extension_group": "vad",
+                    "extension": "silero_vad"
+                  }
+                ]
+              },
+              {
+                "name": "pcm_frame",
+                "source": [
+                  {
+                    "extension_group": "tts",
+                    "extension": "cosyvoice_tts"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "extension_group": "vad",
+            "extension": "silero_vad",
+            "audio_frame": [
+              {
+                "name": "pcm_frame",
+                "dest": [
+                  {
+                    "extension_group": "asr",
+                    "extension": "funasr_asr"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "extension_group": "asr",
+            "extension": "funasr_asr",
+            "data": [
+              {
+                "name": "text_data",
+                "dest": [
+                  {
+                    "extension_group": "llm",
+                    "extension": "glm_llm"
+                  },
+                  {
+                    "extension_group": "webhook",
+                    "extension": "text_webhook"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "extension_group": "llm",
+            "extension": "glm_llm",
+            "data": [
+              {
+                "name": "text_data",
+                "dest": [
+                  {
+                    "extension_group": "tts",
+                    "extension": "cosyvoice_tts"
+                  },
+                  {
+                    "extension_group": "webhook",
+                    "extension": "text_webhook"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

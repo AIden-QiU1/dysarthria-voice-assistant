@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - voxflame
+
+  backend:
+    build: ./backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=development
+    depends_on:
+      - redis
+    networks:
+      - voxflame
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  ten-agent:
+    build: ./ten_agent
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - GLM_API_KEY=${GLM_API_KEY}
+      - BACKEND_WEBHOOK_URL=http://backend:3001/api/agent
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - voxflame
+    deploy:
+      replicas: 2
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+    depends_on:
+      - backend
+    networks:
+      - voxflame
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+
+networks:
+  voxflame:
+    driver: bridge

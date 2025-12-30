@@ -163,13 +163,13 @@ export class AgentController {
       }
       
       // 合并更新
-      profile = {
+      const updatedProfile: UserProfile = {
         ...profile,
         ...updates,
         updatedAt: Date.now()
       }
       
-      userProfiles.set(userId, profile)
+      userProfiles.set(userId, updatedProfile)
       res.json(profile)
     } catch (error) {
       console.error('Error updating user profile:', error)

@@ -7,7 +7,7 @@
 <h3 align="center">🎤 点燃你的声音 · Ignite Your Voice</h3>
 
 <p align="center">
-  <strong>为2000万构音障碍患者打造的AI超级助手</strong><br>
+  <strong>为2000万构音障碍患者打造的AI实时会话支持人</strong><br>
   <em>让每一个声音都被听见、被理解、被实现</em>
 </p>
 
@@ -15,20 +15,14 @@
   <a href="#愿景">愿景</a> •
   <a href="#核心功能">核心功能</a> •
   <a href="#快速开始">快速开始</a> •
-  <a href="#开发计划">开发计划</a> •
   <a href="#架构设计">架构设计</a> •
-  <a href="#研究成果">研究成果</a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/中文名-燃言-orange?style=for-the-badge" alt="燃言">
-  <img src="https://img.shields.io/badge/English-VoxFlame-blue?style=for-the-badge" alt="VoxFlame">
-  <img src="https://img.shields.io/badge/Agent-AI超级助手-green?style=for-the-badge" alt="Agent">
+  <a href="#技术栈">技术栈</a> •
+  <a href="#开发计划">开发计划</a>
 </p>
 
 ---
 
-## ��️ 品牌释义
+## 🔥️ 品牌释义
 
 | 中文 | 英文 | 含义 |
 |------|------|------|
@@ -56,219 +50,305 @@
 **VoxFlame的使命**:
 
 > 不是"纠正"用户的发音，而是**理解**用户的意图。  
-> 从"翻译机"到"超级助手"，覆盖家庭、电话、会议、AAC四大场景。
+> **帮助残疾人迈出主动沟通的第一步** - 在实际沟通场景中的AI会话支持人/主持人。
 
 ---
 
-## ✨ 核心功能
+## ✨ 核心功能（MVP V0.1）
 
-### 🎯 四大超级助手场景
+### 🎯 实时会话支持人
 
-#### 1️⃣ 家庭面对面模式 (P0)
-- 🎤 **高精度ASR**: Whisper-large-v3 + PB-DSR，WER从70%→30%以下
-- 🔊 **清晰语音重建**: 患者语音→标准语音，TTS播放
-- 📝 **实时大字幕**: 投屏到电视，家人一目了然
-- 💬 **快捷短语**: 50+常用需求一键表达
+#### 🎤 **高精度构音障碍ASR**
+- **自定义FunASR模型**: 基于SenseVoice-small，针对构音障碍训练
+- **Hotwords支持**: 动态学习用户常用表达（"燃言"、"帮我"、"喝水"）
+- **VAD集成**: Silero VAD精准检测语音活动
 
-#### 2️⃣ 电话实时助手 (P0)
-- ☎️ **App内置VoIP**: 基于Twilio Voice.js，PWA中直接拨打真实电话
-- 📞 **来电辅助**: 实时字幕+AI总结对方意图
-- 🗣️ **拨打辅助**: 患者说话→清晰语音传输给对方
-- 🚨 **一键呼救**: 长按3秒自动拨打家人/120
+#### 🧠 **个性化LLM理解**
+- **GLM-4 Flash**: 理解用户意图，简短清晰回复
+- **Memory管理**: PowerMem + OceanBase，记住用户习惯
+- **Turn Detection**: AI理解话轮完成（非简单VAD），适配患者说话节奏
 
-#### 3️⃣ 多人会议主持 (P1)
-- 🎥 **Zoom SDK集成**: 嵌入式会议界面
-- 👥 **说话人识别**: 自动标注"张三: xxx"
-- 📊 **AI会议助手**: 每5分钟总结讨论要点
-- ⚡ **快捷回复**: "同意/反对/稍等"一键发送
+#### 🔊 **自然TTS输出**
+- **CosyVoice**: 高质量中文TTS，可调语速
+- **后期可微调**: 针对用户学习标准发音
 
-#### 4️⃣ AAC图片交流增强 (P1)
-- 📸 **拍照生成符号板**: CLIP识别冰箱食物→自动生成"我想要牛奶"
-- 🧠 **上下文感知**: 早餐时间自动推荐"牛奶/面包/鸡蛋"
-- 🎨 **个性化符号**: Stable Diffusion生成用户专属符号
-- 🕒 **场景自动切换**: Agent检测当前场景（家/医院/超市）
+#### 📊 **数据贡献模块**
+- **用户数据收集**: 构音障碍语音样本（匿名化）
+- **Supabase存储**: 用于模型持续训练
+
+---
+
+## 🏗️ 架构设计
+
+### 系统架构图
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Frontend (Next.js 14 PWA)                │
+│  • WebSocket Client • Agora RTC (future) • PWA Offline     │
+└────────────────────┬────────────────────────────────────────┘
+                     │ WebSocket (base64 PCM 16kHz)
+                     │ HTTP REST API
+┌────────────────────┴────────────────────────────────────────┐
+│                Backend (Express + TypeScript)                │
+│  • TEN Agent HTTP Client (start/stop session)              │
+│  • Memory Management API (Supabase)                         │
+│  • Hotwords Extraction & Update                             │
+│  • Session Logging                                          │
+└────────────┬────────────────────────┬───────────────────────┘
+             │                        │
+             │                        │ Supabase Client
+             │                        ▼
+             │              ┌──────────────────────┐
+             │              │  Supabase PostgreSQL │
+             │              │  • User Profiles     │
+             │              │  • Session Logs      │
+             │              │  • Memory Sync       │
+             │              └──────────────────────┘
+             │
+             │ HTTP API (start/stop)
+             ▼
+┌─────────────────────────────────────────────────────────────┐
+│              TEN Agent Framework (Python)                    │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  websocket_server (port 8765)                        │  │
+│  │    ↓ PCM audio                                       │  │
+│  │  Silero VAD                                          │  │
+│  │    ↓ voice segments                                  │  │
+│  │  FunASR (custom model + hotwords)                    │  │
+│  │    ↓ text_data                                       │  │
+│  │  main_python (PowerMem + Turn Detection)             │  │
+│  │    ↓ user query + memory context                     │  │
+│  │  GLM-4 LLM (with Tools)                              │  │
+│  │    ↓ assistant response                              │  │
+│  │  CosyVoice TTS                                       │  │
+│  │    ↓ PCM audio → websocket_server                    │  │
+│  │                                                       │  │
+│  │  text_webhook → Backend API                          │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  PowerMem Memory Management                          │  │
+│  │    ↓ stores to                                       │  │
+│  │  OceanBase SeekDB (Docker)                           │  │
+│  │    ↑ Backend reads for analytics                     │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 数据流程
+
+**会话开始**:
+```
+Frontend → Backend POST /api/session/start
+Backend → TEN Agent HTTP API (generate WebSocket port)
+TEN Agent → PowerMem load user memories
+TEN Agent → Return {ws_port: 8765}
+Frontend → Connect WebSocket ws://localhost:8765
+```
+
+**实时对话**:
+```
+User speaks → Frontend captures audio → WebSocket → TEN Agent
+TEN Agent: PCM → VAD → FunASR (+ hotwords) → ASR text
+main_python: Search PowerMem for relevant memories
+main_python: Inject memory context into prompt
+GLM-4: Generate response (with Tool Calling)
+CosyVoice: Text → PCM audio
+TEN Agent → WebSocket → Frontend → Play audio
+text_webhook: Send ASR+LLM results → Backend API
+Backend: Store to Supabase + analyze hotwords
+```
+
+**会话结束**:
+```
+Frontend → Backend POST /api/session/stop
+Backend → TEN Agent HTTP API (stop session)
+TEN Agent → PowerMem save new memories → OceanBase
+Backend → Sync memories from OceanBase to Supabase
+Backend → Extract hotwords from session logs
+Backend → Update TEN Agent hotwords config (for next session)
+```
+
+---
+
+## 🛠️ 技术栈
+
+| 层级 | 技术选型 | 说明 |
+|------|---------|------|
+| **Frontend** | Next.js 14 | PWA，支持离线 |
+| | TypeScript | 类型安全 |
+| | Tailwind CSS | 样式框架 |
+| | WebSocket Client | 实时音频传输 |
+| | MediaRecorder API | 浏览器录音 |
+| **Backend** | Express | Node.js服务器 |
+| | TypeScript | 类型安全 |
+| | Supabase Client | PostgreSQL数据库 |
+| | Mem0 (optional) | Memory管理框架 |
+| **TEN Agent** | TEN Framework | 实时AI Agent框架 |
+| | Python 3.10+ | Extension开发语言 |
+| | **FunASR** | 自定义ASR（SenseVoice-small + hotwords） |
+| | **GLM-4 Flash** | 智谱AI大模型 |
+| | **CosyVoice** | 阿里通义实验室TTS |
+| | **PowerMem** | OceanBase长短期记忆管理 |
+| | Silero VAD | 语音活动检测 |
+| | websocket_server | WebSocket transport |
+| | text_webhook | 数据回传Backend |
+| **Memory** | OceanBase SeekDB | TEN Agent本地记忆存储 |
+| | Supabase PostgreSQL | Backend中心化数据管理 |
+| **Infrastructure** | Docker Compose | 容器编排 |
+| | Redis | Session缓存 |
+| | Nginx (future) | 负载均衡 |
 
 ---
 
 ## 🚀 快速开始
 
 ### 环境要求
-```
+```bash
 Node.js 18+
 Python 3.10+
-Redis 7.0+
-PostgreSQL 14+ (Supabase)
+Docker & Docker Compose
+CUDA 11.8+ (for FunASR GPU acceleration)
 ```
 
-### 本地开发
+### 安装步骤
 
+#### 1. 克隆仓库
 ```bash
-# 1. 克隆项目
-git clone https://github.com/your-org/voxflame-agent.git
-cd voxflame-agent
-
-# 2. 前端 (Next.js PWA)
-cd frontend
-npm install
-cp .env.example .env.local
-# 配置环境变量: NEXT_PUBLIC_API_URL, TWILIO_ACCOUNT_SID
-npm run dev  # http://localhost:3000
-
-# 3. 后端 (Express)
-cd ../backend
-npm install
-cp .env.example .env
-# 配置: DATABASE_URL, REDIS_URL, ASR_API_KEY
-npm run dev  # http://localhost:3001
-
-# 4. Agent SDK
-cd ../agent-sdk
-pip install -e .
-python examples/asr_worker.py  # 启动ASR Worker
-
-# 5. 启动Redis
-docker run -d -p 6379:6379 redis:7-alpine
+git clone https://github.com/yourusername/VoxFlame-Agent.git
+cd VoxFlame-Agent
 ```
 
-### Docker Compose（推荐）
+#### 2. 配置环境变量
+```bash
+# Backend (.env)
+cp backend/.env.example backend/.env
 
+# TEN Agent (.env)
+cp ten_agent/.env.example ten_agent/.env
+
+# Frontend (.env.local)
+cp frontend/.env.example frontend/.env.local
+```
+
+**Backend .env**:
+```env
+PORT=3001
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+TEN_AGENT_API_URL=http://localhost:8080
+```
+
+**TEN Agent .env**:
+```env
+GLM_API_KEY=your_glm_api_key
+COSY_TTS_API_KEY=your_dashscope_api_key
+BACKEND_WEBHOOK_URL=http://localhost:3001/api/webhook/ten-agent
+OCEANBAS_HOST=localhost
+OCEANBASE_PORT=2881
+OCEANBASE_USER=root
+OCEANBASE_PASSWORD=root
+OCEANBASE_DATABASE=voxflame
+```
+
+**Frontend .env.local**:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001
+```
+
+#### 3. 启动服务
+
+**方式A: Docker Compose（推荐）**
 ```bash
 docker-compose up -d
-# 访问 http://localhost:3000
 ```
 
----
-
-## 📅 开发计划
-
-### 🎯 MVP阶段 (Month 1-3)
-
-| Sprint | 功能 | 时长 | 状态 | KPI |
-|--------|------|------|------|-----|
-| Sprint 1 | 核心ASR基础 | 4周 | ✅ 50% | WER < 40% |
-| Sprint 2 | PWA + 电话功能 | 4周 | 🔄 进行中 | 延迟 < 500ms |
-| Sprint 3 | Agent智能体 | 4周 | ⏳ 待开始 | 意图准确率 > 85% |
-
-### 🚀 V1.0阶段 (Month 4-6)
-
-| Sprint | 功能 | 时长 | 状态 | KPI |
-|--------|------|------|------|-----|
-| Sprint 4 | 会议与AAC | 4周 | ⏳ | 10,000 MAU |
-| Sprint 5 | 个性化与优化 | 4周 | ⏳ | 留存率 > 40% |
-| Sprint 6 | 商业化准备 | 4周 | ⏳ | 付费转化 > 5% |
-
----
-
-## 🏗️ 技术架构
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    VoxFlame Agent 架构                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐  │
-│   │   前端 PWA   │     │   后端 API   │     │  AI Workers  │  │
-│   │  Next.js 14 │◄───►│   Express   │◄───►│  Python SDK │  │
-│   │  Twilio SDK │     │   WebSocket │     │  Whisper    │  │
-│   │  Zoom SDK   │     │   Redis MQ  │     │  Qwen2.5    │  │
-│   └─────────────┘     └─────────────┘     └─────────────┘  │
-│                              │                              │
-│                    ┌─────────▼─────────┐                   │
-│                    │                   │                   │
-│                    │   Supabase DB     │                   │
-│                    │   + Redis Cache   │                   │
-│                    │                   │                   │
-│                    └───────────────────┘                   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 技术栈一览
-
-| 层级 | 技术 |
-|------|------|
-| **前端** | Next.js 14, TypeScript, Tailwind CSS, PWA, Twilio Voice SDK |
-| **后端** | Node.js, Express, WebSocket, Redis, PostgreSQL |
-| **AI** | Whisper-large-v3, PB-DSR, Qwen2.5-Omni, CosyVoice |
-| **部署** | Vercel, 阿里云ECS, Supabase, Docker |
-
----
-
-## 📊 研究成果
-
-### 完整研究报告
-
-我们完成了 **33个章节** 的完整研究报告，覆盖：
-
-| 部分 | 内容 | 章节数 |
-|------|------|--------|
-| **Part 1** | 技术调研 | 7 章 |
-| **Part 2** | 科研大师视角 | 9 章 |
-| **Part 3** | 产品经理视角 | 9 章 |
-| **Part 4** | 超级助手实现 | 8+ 章 |
-
-**📖 阅读完整报告**: [docs/my_research.md](docs/my_research.md)
-
-### 核心技术指标
-
-```
-ASR准确率提升路线:
-  基线 WER: 67%
-  └─ + PB-DSR: 38% (-50%)
-  └─ + LLM纠错: 35% (-7.36%)
-  └─ + 个性化: 25% (目标)
-```
-
----
-
-## 🤝 参与贡献
-
-### 开发者
-
+**方式B: 手动启动**
 ```bash
-# 安装开发依赖
-pip install -e ./agent-sdk
-pip install -r tests/requirements.txt
+# 1. 启动OceanBase
+docker run -d --name oceanbase-seekdb \
+  -p 2881:2881 -p 2886:2886 \
+  -e ROOT_PASSWORD=root \
+  -e SEEKDB_DATABASE=voxflame \
+  oceanbase/seekdb:latest
 
-# 运行测试
-pytest tests/ -v
+# 2. 启动Backend
+cd backend
+npm install
+npm run dev  # Port 3001
+
+# 3. 启动TEN Agent
+cd ten_agent
+pip install -r requirements.txt
+python main.py  # Port 8080
+
+# 4. 启动Frontend
+cd frontend
+npm install
+npm run dev  # Port 3000
 ```
 
-### 研究者
-
-- [技术调研报告 (33章节)](docs/my_research.md)
-- [用户研究总结](docs/USER_RESEARCH_SUMMARY.md)
-- [API规范](docs/API_SPECIFICATION.md)
-
-### 志愿者
-
-- 🎤 贡献语音数据
-- 📝 翻译文档
-- 💬 社区支持
+#### 4. 访问应用
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001/api
+- TEN Agent API: http://localhost:8080
 
 ---
 
-## 📜 开源协议
+## 📋 开发计划
 
-MIT License
+### MVP V0.1（当前阶段）
+- [x] ✅ TEN Agent property.json配置（WebSocket架构）
+- [x] ✅ 自定义FunASR extension (hotwords支持)
+- [x] ✅ GLM-4 LLM extension
+- [x] ✅ CosyVoice TTS extension
+- [x] ✅ Supabase数据库schema
+- [x] ✅ Backend Supabase客户端
+- [x] ✅ Backend Memory管理API (7个端点)
+- [ ] 🔄 PowerMem + OceanBase集成
+
+
+- [ ] 🔄 Frontend WebSocket client
+- [ ] 🔄 Docker Compose部署
+- [ ] 🔄 端到端测试
+
+### MVP V0.2（规划中）
+- [ ] Turn Detection集成（Cerebrium or GLM-4判断）
+- [ ] Hotwords动态更新（Backend分析→TEN Agent reload）
+- [ ] Frontend记忆展示页面
+- [ ] ASR模型针对构音障碍fine-tuning
+- [ ] 多TEN Agent实例部署（Nginx负载均衡）
+
+### 未来功能
+- [ ] Agora RTC视频通话（看嘴型辅助）
+- [ ] 电话实时助手（Twilio集成）
+- [ ] AAC图片交流增强
+- [ ] 多语言支持（英文、粤语）
 
 ---
 
-## 💬 联系我们
+## 📚 技术文档
 
-- GitHub Issues: [提交问题](https://github.com/your-org/voxflame-agent/issues)
-- Email: 2307294809@qq.com
+- [API文档](docs/API_SPECIFICATION.md)
+- [用户研究](docs/USER_RESEARCH_DYSARTHRIC_ELDERLY_CN.md)
+- [TEN Framework集成](docs/TEN_FRAMEWORK_INTEGRATION.md)
+
+---
+
+## 🤝 贡献指南
+
+欢迎贡献！请阅读[贡献指南](CONTRIBUTING.md)了解详情。
+
+---
+
+## 📄 许可证
+
+[MIT License](LICENSE)
 
 ---
 
 <p align="center">
-  <img src="https://img.shields.io/badge/🔥-燃言-orange?style=for-the-badge" alt="燃言">
-  <img src="https://img.shields.io/badge/VoxFlame-Agent-blue?style=for-the-badge" alt="VoxFlame Agent">
+  <strong>🔥 燃言 · 点燃每一个声音 🔥</strong>
 </p>
-
-<p align="center">
-  <strong>点燃你的声音 · Ignite Your Voice 🔥</strong><br>
-  <em>让AI成为沟通的桥梁，而非障碍</em>
-</p>
-
-**⭐ Star 本项目支持构音障碍患者！**

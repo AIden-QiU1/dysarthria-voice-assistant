@@ -2,168 +2,245 @@
   "_ten": {
     "predefined_graphs": [
       {
-        "name": "voxflame_voice_agent",
+        "name": "voxflame_graph",
         "auto_start": true,
         "nodes": [
           {
             "type": "extension",
-            "name": "agora_rtc",
-            "addon": "agora_rtc_python",
-            "extension_group": "transport",
+            "name": "websocket_server",
+            "addon": "websocket_server_python",
+            "extension_group": "websocket_server",
             "property": {
-              "app_id": "${env:AGORA_APP_ID}",
-              "token": "${env:AGORA_TOKEN}",
-              "channel": "${env:AGORA_CHANNEL}",
-              "uid": 0,
-              "stream_id": 1234,
-              "remote_stream_id": 1234,
-              "subscribe_audio_sample_rate": 16000,
-              "publish_audio_sample_rate": 16000
+              "port": 8765,
+              "host": "0.0.0.0",
+              "sample_rate": 16000,
+              "channels": 1,
+              "bytes_per_sample": 2
             }
           },
           {
             "type": "extension",
-            "name": "silero_vad",
-            "addon": "silero_vad_python",
-            "extension_group": "vad",
-            "property": {
-              "threshold": 0.5,
-              "min_speech_duration_ms": 250,
-              "min_silence_duration_ms": 300,
-              "speech_pad_ms": 100
-            }
-          },
-          {
-            "type": "extension",
-            "name": "funasr_asr",
+            "name": "funasr_asr_python",
             "addon": "funasr_asr_python",
             "extension_group": "asr",
             "property": {
-              "model": "sensevoice-small",
-              "device": "cuda:0",
-              "language": "auto",
-              "hotwords": ["燃言", "帮我", "喝水", "吃饭", "打电话"]
+              "model": "SenseVoice-small",
+              "vad_model": "fsmn-vad",
+              "punc_model": "ct-punc",
+              "device": "cuda",
+              "sample_rate": 16000,
+              "hotwords": [
+                "燃言",
+                "帮我",
+                "喝水",
+                "吃饭",
+                "打电话",
+                "开灯",
+                "关灯"
+              ]
             }
           },
           {
             "type": "extension",
-            "name": "glm_llm",
+            "name": "main_python",
+            "addon": "main_python",
+            "extension_group": "control",
+            "property": {
+              "greeting": "你好！我是燃言，你的AI会话支持人。我会记住我们的对话，帮助你更自信地沟通。",
+              "agent_id": "voxflame_agent",
+              "user_id": "default_user",
+              "enable_memorization": true,
+              "enable_user_memory": true,
+              "memory_save_interval_turns": 5,
+              "memory_idle_timeout_seconds": 30.0,
+              "powermem_config": {
+                "vector_store": {
+                  "provider": "oceanbase",
+                  "config": {
+                    "collection_name": "${env:OCEANBASE_COLLECTION}",
+                    "host": "${env:OCEANBASE_HOST}",
+                    "port": "${env:OCEANBASE_PORT}",
+                    "user": "${env:OCEANBASE_USER}",
+                    "password": "${env:OCEANBASE_PASSWORD}",
+                    "db_name": "${env:OCEANBASE_DATABASE}"
+                  }
+                },
+                "llm": {
+                  "provider": "${env:LLM_PROVIDER}",
+                  "config": {
+                    "api_key": "${env:LLM_API_KEY}",
+                    "model": "${env:LLM_MODEL}"
+                  }
+                },
+                "embedder": {
+                  "provider": "${env:EMBEDDING_PROVIDER}",
+                  "config": {
+                    "api_key": "${env:EMBEDDING_API_KEY}",
+                    "model": "${env:EMBEDDING_MODEL}",
+                    "embedding_dims": "${env:EMBEDDING_DIMS}"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "extension",
+            "name": "glm_llm_python",
             "addon": "glm_llm_python",
             "extension_group": "llm",
             "property": {
               "api_key": "${env:GLM_API_KEY}",
-              "model": "glm-4",
+              "model": "${env:GLM_MODEL}",
               "temperature": 0.7,
-              "max_tokens": 500,
-              "system_prompt": "你是燃言语音助手，专为构音障碍用户设计。请用简短、清晰的句子回复。",
-              "enable_tools": true
+              "max_tokens": 512,
+              "system_prompt": "你是燃言（VoxFlame），一个专为构音障碍患者设计的AI会话支持人。你的目标是帮助用户敢于发声、主动沟通。请用简短、清晰、鼓励的句子回复。",
+              "tools": [
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "make_phone_call",
+                    "description": "拨打电话给联系人",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "contact_name": {
+                          "type": "string",
+                          "description": "联系人姓名"
+                        },
+                        "phone_number": {
+                          "type": "string",
+                          "description": "电话号码（可选）"
+                        }
+                      },
+                      "required": ["contact_name"]
+                    }
+                  }
+                },
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "control_smart_device",
+                    "description": "控制智能家居设备",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "device_name": {
+                          "type": "string",
+                          "description": "设备名称（如：灯、空调）"
+                        },
+                        "action": {
+                          "type": "string",
+                          "enum": ["开", "关", "调节"],
+                          "description": "操作类型"
+                        },
+                        "value": {
+                          "type": "string",
+                          "description": "调节数值（如温度、亮度）"
+                        }
+                      },
+                      "required": ["device_name", "action"]
+                    }
+                  }
+                }
+              ]
             }
           },
           {
             "type": "extension",
-            "name": "cosyvoice_tts",
+            "name": "cosyvoice_tts_python",
             "addon": "cosyvoice_tts_python",
             "extension_group": "tts",
             "property": {
-              "model_dir": "/models/CosyVoice-300M-SFT",
+              "api_key": "${env:DASHSCOPE_API_KEY}",
+              "model": "${env:COSY_VOICE_MODEL}",
               "voice": "中文女",
-              "speed": 0.9,
-              "sample_rate": 16000
+              "sample_rate": 16000,
+              "speed": 0.9
             }
           },
           {
             "type": "extension",
-            "name": "backend_webhook",
-            "addon": "backend_webhook_python",
+            "name": "text_webhook",
+            "addon": "text_webhook_python",
             "extension_group": "webhook",
             "property": {
-              "url": "${env:BACKEND_WEBHOOK_URL|http://localhost:3001/webhook}",
-              "send_on_start": true,
-              "send_on_close": true,
-              "send_asr_result": true,
-              "send_llm_result": true
+              "url": "${env:BACKEND_WEBHOOK_URL}",
+              "method": "POST",
+              "send_final_only": true
             }
           }
         ],
         "connections": [
           {
-            "extension_group": "transport",
-            "extension": "agora_rtc",
-            "data": [
+            "extension": "websocket_server",
+            "audio_frame": [
               {
                 "name": "pcm_frame",
                 "dest": [
                   {
-                    "extension_group": "vad",
-                    "extension": "silero_vad"
+                    "extension": "funasr_asr_python"
                   }
                 ]
               }
             ]
           },
           {
-            "extension_group": "vad",
-            "extension": "silero_vad",
+            "extension": "funasr_asr_python",
             "data": [
+              {
+                "name": "asr_result",
+                "dest": [
+                  {
+                    "extension": "main_python"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "extension": "main_python",
+            "cmd": [
+              {
+                "name": "flush",
+                "dest": [
+                  {
+                    "extension": "glm_llm_python"
+                  }
+                ]
+              }
+            ],
+            "data": [
+              {
+                "name": "transcript",
+                "dest": [
+                  {
+                    "extension": "text_webhook"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "extension": "glm_llm_python",
+            "data": [
+              {
+                "name": "llm_response",
+                "dest": [
+                  {
+                    "extension": "main_python"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "extension": "cosyvoice_tts_python",
+            "audio_frame": [
               {
                 "name": "pcm_frame",
                 "dest": [
                   {
-                    "extension_group": "asr",
-                    "extension": "funasr_asr"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "extension_group": "asr",
-            "extension": "funasr_asr",
-            "data": [
-              {
-                "name": "text_data",
-                "dest": [
-                  {
-                    "extension_group": "llm",
-                    "extension": "glm_llm"
-                  },
-                  {
-                    "extension_group": "webhook",
-                    "extension": "backend_webhook"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "extension_group": "llm",
-            "extension": "glm_llm",
-            "data": [
-              {
-                "name": "text_data",
-                "dest": [
-                  {
-                    "extension_group": "tts",
-                    "extension": "cosyvoice_tts"
-                  },
-                  {
-                    "extension_group": "webhook",
-                    "extension": "backend_webhook"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "extension_group": "tts",
-            "extension": "cosyvoice_tts",
-            "data": [
-              {
-                "name": "pcm_frame",
-                "dest": [
-                  {
-                    "extension_group": "transport",
-                    "extension": "agora_rtc"
+                    "extension": "websocket_server"
                   }
                 ]
               }

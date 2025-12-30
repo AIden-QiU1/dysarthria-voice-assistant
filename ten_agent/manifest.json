@@ -2,14 +2,54 @@
   "type": "app",
   "name": "voxflame_agent",
   "version": "1.0.0",
-  "description": "燃言 VoxFlame - 构音障碍语音助手",
+  "description": "燃言 VoxFlame - 构音障碍AI会话支持人（带PowerMem记忆管理）",
   "author": "VoxFlame Team",
   "language": "python",
+  "dependencies": [
+    {
+      "type": "extension",
+      "name": "websocket_server_python",
+      "version": "^1.0.0"
+    },
+    {
+      "type": "extension",
+      "name": "funasr_asr_python",
+      "version": "^1.0.0"
+    },
+    {
+      "type": "extension",
+      "name": "main_python",
+      "version": "^1.0.0"
+    },
+    {
+      "type": "extension",
+      "name": "glm_llm_python",
+      "version": "^1.0.0"
+    },
+    {
+      "type": "extension",
+      "name": "cosyvoice_tts_python",
+      "version": "^1.0.0"
+    },
+    {
+      "type": "extension",
+      "name": "text_webhook_python",
+      "version": "^1.0.0"
+    }
+  ],
   "api": {
     "property": {
       "greeting": {
         "type": "string",
-        "default": "您好，我是燃言语音助手，有什么可以帮您的吗？"
+        "default": "你好！我是燃言，你的AI会话支持人。"
+      },
+      "enable_memorization": {
+        "type": "boolean",
+        "default": true
+      },
+      "memory_save_interval_turns": {
+        "type": "int",
+        "default": 5
       }
     }
   }

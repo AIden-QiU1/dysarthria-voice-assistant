@@ -922,62 +922,6 @@ stream:{session_id}:result   # 结果流（输出）
 ### 6.1 Worker 注册
 
 ```python
-# Worker 启动时向 Agent SDK 注册
-
-# POST /internal/workers/register
-Request:
-{
-    "worker_id": "worker_asr_1",
-    "worker_type": "asr",
-    "capabilities": ["sensevoice", "whisper", "ger"],
-    "max_concurrent": 4,
-    "gpu_info": {
-        "name": "NVIDIA T4",
-        "memory_mb": 16384
-    },
-    "health_endpoint": "http://worker-asr:8001/health"
-}
-
-Response:
-{
-    "registered": true,
-    "assigned_streams": ["tasks:asr"]
-}
-```
-
-### 6.2 健康检查接口
-
-```python
-# 每个 Worker 必须实现
-
-# GET /health
-Response:
-{
-    "status": "healthy",  # healthy | unhealthy | degraded
-    "worker_id": "worker_asr_1",
-    "uptime_seconds": 3600,
-    "current_load": 2,
-    "max_load": 4,
-    "gpu_memory_used_mb": 4096,
-    "gpu_memory_total_mb": 16384,
-    "last_task_at": "2024-01-01T10:00:00Z",
-    "error_rate_1m": 0.01
-}
-```
-
-### 6.3 ASR Worker 内部接口
-
-```python
-# POST /internal/transcribe
-# 单次转录（由 Agent SDK 调用）
-Request:
-{
-    "task_id": "task_xxx",
-    "audio": {
-        "data": "base64...",
-        "format": "pcm",
-        "sample_rate": 16000
-    },
     "options": {
         "engine": "sensevoice",
         "enable_ger": true,
@@ -1043,27 +987,6 @@ Response:
         "llm_time_ms": 500,
         "tts_time_ms": 200,
         "total_time_ms": 700
-    }
-}
-```
-
----
-
-## 7. 错误码规范
-
-```python
-# 通用错误码
-ERROR_CODES = {
-    # 认证错误 (1xxx)
-    1001: "INVALID_TOKEN",
-    1002: "TOKEN_EXPIRED",
-    1003: "UNAUTHORIZED",
-
-    # 请求错误 (2xxx)
-    2001: "INVALID_REQUEST",
-    2002: "MISSING_PARAMETER",
-    2003: "INVALID_PARAMETER",
-    2004: "RESOURCE_NOT_FOUND",
 
     # 业务错误 (3xxx)
     3001: "SESSION_NOT_FOUND",
