@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import supabaseService, { Memory } from '../services/supabase.service';
+import { SupabaseService, Memory } from '../services/supabase.service';
 
 export class MemoryController {
   // POST /api/memory/add - Add new memory from TEN Agent
@@ -20,7 +20,7 @@ export class MemoryController {
         created_at: new Date().toISOString(),
       };
 
-      const created = await supabaseService.addMemory(memory);
+      const created = await SupabaseService.getInstance().addMemory(memory);
       
       if (!created) {
         res.status(500).json({ error: 'Failed to add memory' });
@@ -44,7 +44,7 @@ export class MemoryController {
         return;
       }
 
-      const memories = await supabaseService.searchMemories(
+      const memories = await SupabaseService.getInstance().searchMemories(
         user_id as string,
         query as string,
         limit ? parseInt(limit as string) : 10
@@ -68,7 +68,7 @@ export class MemoryController {
         return;
       }
 
-      const memories = await supabaseService.getMemories(
+      const memories = await SupabaseService.getInstance().getMemories(
         userId,
         limit ? parseInt(limit as string) : 50
       );
@@ -91,7 +91,7 @@ export class MemoryController {
         return;
       }
 
-      const updated = await supabaseService.updateMemory(memoryId, updates);
+      const updated = await SupabaseService.getInstance().updateMemory(memoryId, updates);
       
       if (!updated) {
         res.status(404).json({ error: 'Memory not found or update failed' });
@@ -115,7 +115,7 @@ export class MemoryController {
         return;
       }
 
-      const success = await supabaseService.deleteMemory(memoryId);
+      const success = await SupabaseService.getInstance().deleteMemory(memoryId);
       
       if (!success) {
         res.status(404).json({ error: 'Memory not found or deletion failed' });
@@ -139,7 +139,7 @@ export class MemoryController {
         return;
       }
 
-      const hotwords = await supabaseService.extractHotwords(userId);
+      const hotwords = await SupabaseService.getInstance().extractHotwords(userId);
 
       res.json({ hotwords, count: hotwords.length });
     } catch (error) {
@@ -158,7 +158,7 @@ export class MemoryController {
         return;
       }
 
-      const stats = await supabaseService.getUserStats(userId);
+      const stats = await SupabaseService.getInstance().getUserStats(userId);
 
       res.json(stats);
     } catch (error) {

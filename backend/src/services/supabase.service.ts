@@ -283,4 +283,5 @@ export class SupabaseService {
   }
 }
 
-export default SupabaseService.getInstance();
+// Lazy initialization - call getInstance() when needed
+// export default SupabaseService.getInstance();

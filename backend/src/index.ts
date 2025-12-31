@@ -5,6 +5,7 @@ import { createServer } from 'http'
 import { WebSocketServer } from 'ws'
 import { ASRController } from './controllers/asr.controller'
 import { agentRouter } from './controllers/agent.controller'
+import sessionRouter from './controllers/session.controller'
 import { memoryController } from './controllers/memory.controller'
 import { errorHandler } from './middlewares/error.middleware'
 
@@ -31,6 +32,9 @@ app.get('/health', (req, res) => {
 
 // Agent API 路由 (TEN Webhook)
 app.use('/api/agent', agentRouter)
+
+// Session API 路由 (NEW)
+app.use('/api/session', sessionRouter)
 
 // Memory API 路由 (NEW)
 const memoryRouter = express.Router()

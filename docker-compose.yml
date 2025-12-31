@@ -1,59 +1,106 @@
 version: '3.8'
 
 services:
-  redis:
-    image: redis:7-alpine
+  # OceanBase SeekDB for PowerMem
+  oceanbase:
+    image: oceanbase/oceanbase-ce:latest
+    container_name: voxflame-oceanbase
     ports:
-      - "6379:6379"
-    networks:
-      - voxflame
+      - "2881:2881"
+      - "2886:2886"
+    environment:
+      - MODE=slim
+      - OB_ROOT_PASSWORD=root
+      - OB_DATAFILE_SIZE=5G
+      - OB_LOG_DISK_SIZE=2G
+    volumes:
+      - oceanbase_data:/root/ob
+    healthcheck:
+      test: ["CMD", "mysql", "-h127.0.0.1", "-P2881", "-uroot", "-proot", "-e", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Backend API Server
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: voxflame-backend
     ports:
       - "3001:3001"
     environment:
+      - NODE_ENV=production
       - PORT=3001
-      - REDIS_URL=redis://redis:6379
-      - NODE_ENV=development
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - TEN_AGENT_API_URL=http://ten-agent:8080
+      - VOLCENGINE_ACCESS_KEY_ID=${VOLCENGINE_ACCESS_KEY_ID}
+      - VOLCENGINE_SECRET_ACCESS_KEY=${VOLCENGINE_SECRET_ACCESS_KEY}
+      - VOLCENGINE_APP_ID=${VOLCENGINE_APP_ID}
+      - ALIBABA_APP_KEY=${ALIBABA_APP_KEY}
+      - ALIBABA_ACCESS_KEY_ID=${ALIBABA_ACCESS_KEY_ID}
+      - ALIBABA_ACCESS_KEY_SECRET=${ALIBABA_ACCESS_KEY_SECRET}
     depends_on:
-      - redis
-    networks:
-      - voxflame
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - oceanbase
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
 
+  # TEN Agent (AI Voice Assistant)
   ten-agent:
-    build: ./ten_agent
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - GLM_API_KEY=${GLM_API_KEY}
-      - BACKEND_WEBHOOK_URL=http://backend:3001/api/agent
-    depends_on:
-      - redis
-      - backend
-    networks:
-      - voxflame
-    deploy:
-      replicas: 2
-
-  frontend:
-    build: ./frontend
+    build:
+      context: ./ten_agent
+      dockerfile: Dockerfile
+    container_name: voxflame-ten-agent
     ports:
-      - "3000:3000"
+      - "8765:8765"  # WebSocket
+      - "8080:8080"  # HTTP API
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - COSY_VOICE_MODEL=cosyvoice-v3-plus
+      - COSY_VOICE_SAMPLE_RATE=48000
+      - ASR_MODEL=SenseVoice-small
+      - ASR_DEVICE=cuda
+      - WEBSOCKET_PORT=8765
+      - WEBSOCKET_HOST=0.0.0.0
+      - BACKEND_WEBHOOK_URL=http://backend:3001/api/memory/add
+      - DATABASE_PROVIDER=oceanbase
+      - OCEANBASE_HOST=oceanbase
+      - OCEANBASE_PORT=2881
+      - OCEANBASE_USER=root
+      - OCEANBASE_PASSWORD=root
+      - OCEANBASE_DATABASE=voxflame
+      - LLM_PROVIDER=dashscope
+      - LLM_API_KEY=${DASHSCOPE_API_KEY}
+      - LLM_MODEL=qwen-max
+      - EMBEDDING_PROVIDER=dashscope
+      - EMBEDDING_API_KEY=${DASHSCOPE_API_KEY}
+      - EMBEDDING_MODEL=embedding-3
+      - EMBEDDING_DIMS=1536
+      - ENABLE_MEMORIZATION=true
+      - ENABLE_USER_MEMORY=true
+      - MEMORY_SAVE_INTERVAL_TURNS=5
     depends_on:
+      - oceanbase
       - backend
-    networks:
-      - voxflame
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  oceanbase_data:
+    driver: local
 
 networks:
-  voxflame:
-    driver: bridge
+  default:
+    name: voxflame-network
