@@ -2,3 +2,12 @@
 .idea
 .vscode
 *.log
+*.env
+venv/
+__pycache__/
+*.pyc
+node_modules/
+dist/
+build/
+*.egg-info/
+coverage/
