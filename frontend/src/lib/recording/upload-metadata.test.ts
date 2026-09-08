@@ -65,3 +65,10 @@ test('training upload metadata keeps reading lineage but not the full article', 
     },
   )
 })
+
+test('recording dialect origin survives upload while residence and background stay private', () => {
+  assert.deepEqual(sanitizeTrainingUploadMetadata({
+    dialect_name: '四川话', dialect_region: '四川成都', province: '广东', city: '深圳',
+    dialect_profiles: [{ name: '粤语', region: '广东广州' }],
+  }), { dialect_name: '四川话', dialect_region: '四川成都' })
+})

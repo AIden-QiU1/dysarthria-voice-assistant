@@ -7,7 +7,7 @@
     "dev": "ts-node src/index.ts",
     "build": "tsc",
     "test": "ts-node src/services/livekit-config.service.test.ts",
-    "test:upload-metadata": "ts-node src/services/upload-admission.service.test.ts && ts-node src/services/upload-path-policy.test.ts && ts-node src/services/oss.service.test.ts && ts-node src/services/recording-quality.service.test.ts && ts-node src/services/upload-capacity.service.test.ts && ts-node src/middlewares/quality-reviewer.middleware.test.ts && ts-node src/services/upload-artifact.service.test.ts && ts-node src/services/training-dataset-export.service.test.ts",
+    "test:upload-metadata": "ts-node src/services/quality-review.service.test.ts && ts-node src/services/upload-admission.service.test.ts && ts-node src/services/upload-path-policy.test.ts && ts-node src/services/oss.service.test.ts && ts-node src/services/recording-quality.service.test.ts && ts-node src/services/upload-capacity.service.test.ts && ts-node src/middlewares/quality-reviewer.middleware.test.ts && ts-node src/services/upload-artifact.service.test.ts && ts-node src/services/training-dataset-export.service.test.ts",
     "test:sms-auth": "ts-node src/services/sms-auth.service.test.ts",
     "start": "node dist/index.js",
     "reconcile:artifacts": "ts-node scripts/reconcile_upload_artifacts.ts",

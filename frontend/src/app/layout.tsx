@@ -75,7 +75,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN" dir="ltr">
+    <html lang="zh-CN" dir="ltr" data-site-mode={siteBrand.mode}>
       <head>
         <meta name="msapplication-TileColor" content={siteBrand.accentColor} />
       </head>

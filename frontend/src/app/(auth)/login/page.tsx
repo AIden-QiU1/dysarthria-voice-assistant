@@ -22,6 +22,8 @@ import {
     type IdentityDocumentType,
     type RegistrationProfileInput,
 } from '@/lib/auth/registration-profile'
+import { DialectProfileFields } from '@/components/auth/DialectProfileFields'
+import type { DialectProfile } from '@/lib/auth/dialect-profile'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -66,17 +68,14 @@ export default function LoginPage() {
     const [disabilityCategory, setDisabilityCategory] = useState('')
     const [etiology, setEtiology] = useState<TrainingEtiology | ''>('')
     const [hasDialect, setHasDialect] = useState<boolean | null>(null)
-    const [dialectName, setDialectName] = useState('')
+    const [dialects, setDialects] = useState<DialectProfile[]>([{ name: '', region: '' }])
     const [identityDocumentType, setIdentityDocumentType] = useState<IdentityDocumentType>('disability_certificate')
     const [identityDocumentNumber, setIdentityDocumentNumber] = useState('')
     const [otp, setOtp] = useState('')
     const [phoneOtpSent, setPhoneOtpSent] = useState(false)
     const [resendSeconds, setResendSeconds] = useState(0)
     const [isLoading, setIsLoading] = useState(false)
-    const [privacyAccepted, setPrivacyAccepted] = useState(false)
-    const [sensitiveDataAccepted, setSensitiveDataAccepted] = useState(false)
-    const [dataCollectionAccepted, setDataCollectionAccepted] = useState(false)
-    const [commercialUseAccepted, setCommercialUseAccepted] = useState(false)
+    const [legalConsentAccepted, setLegalConsentAccepted] = useState(false)
 
     const { toast } = useToast()
     const router = useRouter()
@@ -92,7 +91,7 @@ export default function LoginPage() {
         disabilityCategory,
         etiology,
         hasDialect,
-        dialectName,
+        dialects,
         identityDocumentType,
         identityDocumentNumber,
     }
@@ -148,14 +147,14 @@ export default function LoginPage() {
     }, [nextPath, router, supabase])
 
     const ensureLegalConsent = (): boolean => {
-        if (privacyAccepted && sensitiveDataAccepted && dataCollectionAccepted && commercialUseAccepted) {
+        if (legalConsentAccepted) {
             return true
         }
 
         toast({
             variant: "destructive",
             title: "请先确认授权文件",
-            description: "登录前需要确认隐私、敏感信息、数据采集和商业用途授权。",
+            description: "登录前需要勾选并确认当前版本的统一授权。",
         })
         return false
     }
@@ -184,10 +183,10 @@ export default function LoginPage() {
                 description: "正在跳转...",
             })
             const consentSnapshot = buildLegalConsentSnapshot({
-                privacyAccepted,
-                sensitiveDataAccepted,
-                dataCollectionAccepted,
-                commercialUseAccepted,
+                privacyAccepted: legalConsentAccepted,
+                sensitiveDataAccepted: legalConsentAccepted,
+                dataCollectionAccepted: legalConsentAccepted,
+                commercialUseAccepted: legalConsentAccepted,
             })
             persistLocalLegalConsent(consentSnapshot)
             try {
@@ -211,10 +210,10 @@ export default function LoginPage() {
         setIsLoading(true)
 
         const consentSnapshot = buildLegalConsentSnapshot({
-            privacyAccepted,
-            sensitiveDataAccepted,
-            dataCollectionAccepted,
-            commercialUseAccepted,
+            privacyAccepted: legalConsentAccepted,
+            sensitiveDataAccepted: legalConsentAccepted,
+            dataCollectionAccepted: legalConsentAccepted,
+            commercialUseAccepted: legalConsentAccepted,
         })
         const profileMetadata = buildRegistrationProfileMetadata(registrationProfile)
         const emailRedirectTo = typeof window === 'undefined'
@@ -283,10 +282,10 @@ export default function LoginPage() {
                     ? {
                         ...buildRegistrationProfileMetadata(registrationProfile),
                         ...buildLegalConsentUserData(buildLegalConsentSnapshot({
-                            privacyAccepted,
-                            sensitiveDataAccepted,
-                            dataCollectionAccepted,
-                            commercialUseAccepted,
+                            privacyAccepted: legalConsentAccepted,
+                            sensitiveDataAccepted: legalConsentAccepted,
+                            dataCollectionAccepted: legalConsentAccepted,
+                            commercialUseAccepted: legalConsentAccepted,
                         })),
                     }
                     : undefined,
@@ -343,10 +342,10 @@ export default function LoginPage() {
 
         setIsLoading(true)
         const consentSnapshot = buildLegalConsentSnapshot({
-            privacyAccepted,
-            sensitiveDataAccepted,
-            dataCollectionAccepted,
-            commercialUseAccepted,
+            privacyAccepted: legalConsentAccepted,
+            sensitiveDataAccepted: legalConsentAccepted,
+            dataCollectionAccepted: legalConsentAccepted,
+            commercialUseAccepted: legalConsentAccepted,
         })
         const { error } = await supabase.auth.verifyOtp({
             phone: normalizedPhone,
@@ -364,16 +363,21 @@ export default function LoginPage() {
             return
         }
 
-        if (mode === 'register') {
-            persistLocalLegalConsent(consentSnapshot)
-            void supabase.auth.updateUser({
-                data: {
-                    ...buildRegistrationProfileMetadata(registrationProfile),
-                    ...buildLegalConsentUserData(consentSnapshot),
-                },
-            }).catch((updateError) => {
-                console.warn('[login] updateUser skipped after phone sign-in:', updateError)
+        persistLocalLegalConsent(consentSnapshot)
+        try {
+            const { error: updateError } = await supabase.auth.updateUser({
+                data: mode === 'register'
+                    ? {
+                        ...buildRegistrationProfileMetadata(registrationProfile),
+                        ...buildLegalConsentUserData(consentSnapshot),
+                    }
+                    : buildLegalConsentUserData(consentSnapshot),
             })
+            if (updateError) {
+                console.warn('[login] updateUser skipped after phone sign-in:', updateError)
+            }
+        } catch (updateError) {
+            console.warn('[login] updateUser skipped after phone sign-in:', updateError)
         }
         window.location.replace(nextPath)
     }
@@ -436,7 +440,7 @@ export default function LoginPage() {
                                 </p>
                                 <div className="grid gap-4 sm:grid-cols-2">
                                   <div className="space-y-2">
-                                    <Label htmlFor="province">省份</Label>
+                                    <Label htmlFor="province">现居省份</Label>
                                     <Input
                                         id="province"
                                         autoComplete="address-level1"
@@ -448,7 +452,7 @@ export default function LoginPage() {
                                     />
                                   </div>
                                   <div className="space-y-2">
-                                    <Label htmlFor="city">城市</Label>
+                                    <Label htmlFor="city">现居城市</Label>
                                     <Input
                                         id="city"
                                         autoComplete="address-level2"
@@ -522,9 +526,9 @@ export default function LoginPage() {
                                         id="has-dialect"
                                         value={hasDialect === null ? '' : hasDialect ? 'yes' : 'no'}
                                         onChange={(event) => {
-                                            const nextHasDialect = event.target.value === 'yes'
+                                            const nextHasDialect = event.target.value === '' ? null : event.target.value === 'yes'
                                             setHasDialect(nextHasDialect)
-                                            if (!nextHasDialect) setDialectName('')
+                                            if (!nextHasDialect) setDialects([{ name: '', region: '' }])
                                         }}
                                         className="h-11 w-full rounded-md border border-input bg-white px-3 text-sm text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
                                     >
@@ -534,16 +538,8 @@ export default function LoginPage() {
                                     </select>
                                   </div>
                                   {hasDialect ? (
-                                    <div className="space-y-2 sm:col-span-2">
-                                      <Label htmlFor="dialect-name">方言名称</Label>
-                                      <Input
-                                          id="dialect-name"
-                                          placeholder="例如：粤语、四川话、闽南语"
-                                          required
-                                          value={dialectName}
-                                          onChange={(event) => setDialectName(event.target.value)}
-                                          className="h-11"
-                                      />
+                                    <div className="sm:col-span-2">
+                                      <DialectProfileFields value={dialects} onChange={setDialects} />
                                     </div>
                                   ) : null}
                                   <div className="space-y-2">
@@ -687,53 +683,26 @@ export default function LoginPage() {
                             ) : null}
                             <div className="flex items-start gap-3">
                                 <input
-                                    id="privacy-consent"
+                                    id="legal-consent"
                                     type="checkbox"
-                                    checked={privacyAccepted}
-                                    onChange={(event) => setPrivacyAccepted(event.target.checked)}
+                                    checked={legalConsentAccepted}
+                                    onChange={(event) => setLegalConsentAccepted(event.target.checked)}
                                     className="mt-1 h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500"
                                 />
-                                <Label htmlFor="privacy-consent" className="space-y-1 text-sm font-normal leading-6 text-gray-700">
-                                    <span className="block font-medium text-gray-900">我已阅读《用户隐私》并同意账号信息按说明处理</span>
-                                    <span className="block text-pretty text-gray-600">
-                                        了解{siteBrand.name}会保存哪些账号信息、训练数据如何隔离，以及你能如何停止使用或删除数据。
-                                    </span>
-                                    <Link href="/privacy" className="inline-flex text-amber-700 underline underline-offset-4">
-                                        查看用户隐私
-                                    </Link>
-                                </Label>
-                            </div>
-                            <div className="mt-4 flex items-start gap-3">
-                                <input id="sensitive-data-consent" type="checkbox" checked={sensitiveDataAccepted} onChange={(event) => setSensitiveDataAccepted(event.target.checked)} className="mt-1 h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500" />
-                                <Label htmlFor="sensitive-data-consent" className="space-y-1 text-sm font-normal leading-6 text-gray-700">
-                                    <span className="block font-medium text-gray-900">我同意处理语音及健康相关敏感信息</span>
-                                    <span className="block text-pretty text-gray-600">包括录音、转写、方言和注册时填写的病种资料，仅用于本页说明的功能。</span>
-                                </Label>
-                            </div>
-                            <div className="mt-4 flex items-start gap-3">
-                                <input
-                                    id="data-consent"
-                                    type="checkbox"
-                                    checked={dataCollectionAccepted}
-                                    onChange={(event) => setDataCollectionAccepted(event.target.checked)}
-                                    className="mt-1 h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500"
-                                />
-                                <Label htmlFor="data-consent" className="space-y-1 text-sm font-normal leading-6 text-gray-700">
-                                    <span className="block font-medium text-gray-900">我已阅读《数据采集说明》并同意训练录音按说明上传</span>
-                                    <span className="block text-pretty text-gray-600">
-                                        了解录音会保存哪些内容，以及何时上传。
-                                    </span>
-                                    <Link href="/data-collection" className="inline-flex text-amber-700 underline underline-offset-4">
-                                        查看数据采集说明
-                                    </Link>
-                                </Label>
-                            </div>
-                            <div className="mt-4 flex items-start gap-3">
-                                <input id="commercial-use-consent" type="checkbox" checked={commercialUseAccepted} onChange={(event) => setCommercialUseAccepted(event.target.checked)} className="mt-1 h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500" />
-                                <Label htmlFor="commercial-use-consent" className="space-y-1 text-sm font-normal leading-6 text-gray-700">
-                                    <span className="block font-medium text-gray-900">我同意将授权数据用于商业用途</span>
-                                    <span className="block text-pretty text-gray-600">包括模型训练、评测、产品改进和服务运营；不会出售个人身份信息，也不会用于违法用途。你可以停止采集并申请删除。</span>
-                                </Label>
+                                <div className="space-y-2 text-sm font-normal leading-6 text-gray-700">
+                                    <Label htmlFor="legal-consent" className="block text-pretty font-medium leading-6 text-gray-900">
+                                        我已阅读并统一同意《生声不息用户服务协议》《生声不息隐私政策》《数据采集说明》，并同意处理语音及健康相关敏感信息，以及将授权数据用于模型训练、评测、产品改进和服务运营等商业用途
+                                    </Label>
+                                    <p className="text-pretty text-gray-600">
+                                        一次勾选会同步记录上述各项授权；你可通过隐私政策说明的方式撤回授权或申请删除数据。
+                                    </p>
+                                    <nav aria-label="授权文件" className="flex flex-wrap gap-x-3 gap-y-1">
+                                        <Link href="/terms" className="text-amber-700 underline underline-offset-4">用户服务协议</Link>
+                                        <Link href="/privacy" className="text-amber-700 underline underline-offset-4">隐私政策</Link>
+                                        <Link href="/data-collection" className="text-amber-700 underline underline-offset-4">数据采集说明</Link>
+                                        <Link href="/third-party-services" className="text-amber-700 underline underline-offset-4">第三方服务清单</Link>
+                                    </nav>
+                                </div>
                             </div>
                         </div>
                         <Button

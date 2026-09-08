@@ -117,7 +117,7 @@ const TRAINING_METADATA_KEYS = new Set([
   'reading_assistance_used',
   'etiology',
   'speech_variant',
-  'dialect_name',
+  'dialect_name', 'dialect_region',
   'dialect_name_user_reported',
   'dialect_code',
   'language_tag',

@@ -8,6 +8,7 @@ export interface MobileTrainingCaptureSnapshot {
   preparedExpressionId?: string
   speechVariant: MobileTrainingSpeechVariant
   utterancePairId?: string
+  dialect?: { name: string; region: string }
 }
 
 export type MobileTrainingSpeechVariant = 'mandarin' | 'dialect'
@@ -34,6 +35,7 @@ export function buildMobileSpeechVariantMetadata(options: {
   speechVariant: MobileTrainingSpeechVariant
   utterancePairId?: string
   dialectName?: string
+  dialectRegion?: string
 }): Record<string, string> {
   const metadata: Record<string, string> = {
     speech_variant: options.speechVariant,
@@ -43,6 +45,8 @@ export function buildMobileSpeechVariantMetadata(options: {
   if (options.utterancePairId) metadata.utterance_pair_id = options.utterancePairId
   if (options.speechVariant === 'dialect' && options.dialectName?.trim()) {
     metadata.dialect_name = options.dialectName.trim()
+    metadata.label_source = 'user_reported'
+    if (options.dialectRegion?.trim()) metadata.dialect_region = options.dialectRegion.trim()
   }
   return metadata
 }

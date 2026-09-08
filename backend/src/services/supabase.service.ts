@@ -79,6 +79,7 @@ export interface UserProfile {
   disability_category?: string;
   etiology?: string;
   has_dialect?: boolean;
+  dialect_profiles?: Array<{ name: string; region: string }> | null;
   dialect_name?: string;
   identity_document_type?: 'disability_certificate' | 'id_card';
   identity_document_number?: string;
@@ -201,6 +202,7 @@ export interface WorkspaceMemorySnapshot {
     condition?: string;
     etiology?: string;
     has_dialect?: boolean;
+    dialect_profiles?: Array<{ name: string; region: string }> | null;
     dialect_name?: string;
   };
   user_profile_memory: UserProfileMemoryRecord;
@@ -1765,6 +1767,7 @@ export class SupabaseService {
         etiology: userProfile?.etiology,
         has_dialect: userProfile?.has_dialect,
         dialect_name: userProfile?.dialect_name,
+        dialect_profiles: userProfile?.dialect_profiles,
       },
       user_profile_memory: this.readUserProfileMemoryFromProfile(userProfile),
       scene_templates: {

@@ -252,7 +252,7 @@ test('manifest carries the server-verified consent snapshot', () => {
     sanitizeUploadMetadata({
       recording_id: 'recording-1',
       consent_scope: 'training_only',
-      consent_version: '2026-09-03',
+      consent_version: '2026-09-06',
       consent_accepted_at: '2026-09-04T01:00:00.000Z',
       admission_status: 'admitted',
       admission_version: '2026-09-04.1',
@@ -261,7 +261,7 @@ test('manifest carries the server-verified consent snapshot', () => {
 
   assert.deepEqual(manifest.consent, {
     scope: 'training_only',
-    version: '2026-09-03',
+    version: '2026-09-06',
     accepted_at: '2026-09-04T01:00:00.000Z',
     retention_tier: 'synced_hot',
     sync_status: 'uploaded',

@@ -1,3 +1,4 @@
+import { normalizeDialectProfiles, validateDialectProfiles, type DialectProfile } from './dialect-profile'
 export const MOBILE_DISABILITY_CATEGORY_OPTIONS = [
   '言语残疾',
   '听力残疾',
@@ -30,12 +31,12 @@ export interface MobileRegistrationProfileInput {
   disabilityCategory: string
   etiology: string
   hasDialect: boolean | null
-  dialectName: string
+  dialects: DialectProfile[]
   identityDocumentType: MobileIdentityDocumentType
   identityDocumentNumber: string
 }
 
-export type MobileRegistrationProfileMetadata = Record<string, string | boolean | Record<string, string | boolean>>
+export type MobileRegistrationProfileMetadata = Record<string, string | boolean | DialectProfile[] | Record<string, string | boolean>>
 
 function normalizeDocumentNumber(value: string): string {
   return value.replace(/[\s-]/g, '').toUpperCase()
@@ -60,7 +61,10 @@ export function validateMobileRegistrationProfile(input: MobileRegistrationProfi
     return '请选择残疾类别'
   }
   if (!MOBILE_ETIOLOGY_OPTIONS.some(([value]) => value === input.etiology)) return '请选择病种'
-  if (input.hasDialect && !input.dialectName.trim()) return '请输入方言名称'
+  if (input.hasDialect) {
+    const dialectError = validateDialectProfiles(input.dialects)
+    if (dialectError) return dialectError
+  }
   const documentNumber = normalizeDocumentNumber(input.identityDocumentNumber)
   if (input.identityDocumentType === 'id_card' && !isValidIdCard(documentNumber)) return '请输入正确的 18 位身份证号'
   if (input.identityDocumentType === 'disability_certificate' && !/^\d{17}[\dX]\d{0,4}$/.test(documentNumber)) {
@@ -84,9 +88,13 @@ export function buildMobileRegistrationProfileMetadata(
     condition: input.disabilityCategory.trim(),
     etiology: input.etiology,
     ...(input.hasDialect !== null ? { has_dialect: input.hasDialect } : {}),
-    ...(input.hasDialect ? { dialect_name: input.dialectName.trim() } : {}),
+    ...(input.hasDialect !== null ? {
+      dialect_profiles: input.hasDialect ? normalizeDialectProfiles(input.dialects) : [],
+      // Legacy clients may consume a single name only; never concatenate a list.
+      dialect_name: input.hasDialect && input.dialects.length === 1 ? input.dialects[0].name.trim() : '',
+    } : {}),
     identity_document_type: input.identityDocumentType,
     identity_document_number: normalizeDocumentNumber(input.identityDocumentNumber),
-    registration_profile_version: '1',
+    registration_profile_version: '2',
   }
 }

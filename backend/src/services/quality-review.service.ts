@@ -16,6 +16,7 @@ export interface QualityReviewQueueItem {
   qualityReasons: string[]
   speechVariant: string | null
   dialectName: string | null
+  dialectRegion: string | null
   utterancePairId: string | null
 }
 
@@ -37,6 +38,16 @@ function readStringArray(metadata: JsonRecord, key: string): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     : []
+}
+
+/** Only the recording's explicit variant may supply QC dialect grouping. */
+export function readRecordingDialect(metadata: JsonRecord): {
+  dialectName: string | null
+  dialectRegion: string | null
+} {
+  const dialectName = readString(metadata, 'speech_variant') === 'dialect'
+    ? readString(metadata, 'dialect_name') : null
+  return { dialectName, dialectRegion: dialectName ? readString(metadata, 'dialect_region') : null }
 }
 
 export class QualityReviewService {
@@ -64,7 +75,7 @@ export class QualityReviewService {
         qualityStatus: readString(metadata, 'quality_status') ?? 'pending_review',
         qualityReasons: readStringArray(metadata, 'quality_reasons'),
         speechVariant: readString(metadata, 'speech_variant'),
-        dialectName: readString(metadata, 'dialect_name') ?? readString(metadata, 'dialect_name_user_reported'),
+        ...readRecordingDialect(metadata),
         utterancePairId: readString(metadata, 'utterance_pair_id'),
       }]
     })

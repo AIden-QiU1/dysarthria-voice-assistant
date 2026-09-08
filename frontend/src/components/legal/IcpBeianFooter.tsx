@@ -16,7 +16,9 @@ export function IcpBeianFooter() {
         <span>运营主体：{icpBeianCompany}</span>
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           <a className="underline-offset-4 hover:text-stone-800 hover:underline" href="/privacy">用户隐私</a>
+          <a className="underline-offset-4 hover:text-stone-800 hover:underline" href="/terms">用户协议</a>
           <a className="underline-offset-4 hover:text-stone-800 hover:underline" href="/data-collection">数据采集说明</a>
+          <a className="underline-offset-4 hover:text-stone-800 hover:underline" href="/third-party-services">第三方服务与 SDK</a>
           <a
             href={icpBeianUrl}
             target="_blank"

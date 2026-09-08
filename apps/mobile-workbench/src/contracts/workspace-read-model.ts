@@ -151,6 +151,7 @@ export interface MobileWorkspaceSnapshotContract {
     condition?: string
     etiology?: string
     has_dialect?: boolean
+    dialect_profiles?: Array<{ name: string; region: string }> | null
     dialect_name?: string
   }
   user_profile_memory: MobileUserProfileMemory

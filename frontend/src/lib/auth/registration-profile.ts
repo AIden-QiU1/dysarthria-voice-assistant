@@ -1,3 +1,4 @@
+import { normalizeDialectProfiles, validateDialectProfiles, type DialectProfile } from './dialect-profile'
 import { normalizeMainlandPhone } from './phone'
 import {
   TRAINING_ETIOLOGY_OPTIONS,
@@ -25,7 +26,7 @@ export interface RegistrationProfileInput {
   disabilityCategory: string
   etiology: TrainingEtiology | ''
   hasDialect: boolean | null
-  dialectName: string
+  dialects: DialectProfile[]
   identityDocumentType: IdentityDocumentType
   identityDocumentNumber: string
 }
@@ -40,9 +41,10 @@ export interface RegistrationProfileMetadata {
   etiology: TrainingEtiology
   has_dialect?: boolean
   dialect_name?: string
+  dialect_profiles?: DialectProfile[]
   identity_document_type: IdentityDocumentType
   identity_document_number: string
-  registration_profile_version: 1
+  registration_profile_version: 2
 }
 
 function normalizeDocumentNumber(value: string): string {
@@ -75,7 +77,10 @@ export function validateRegistrationProfile(input: RegistrationProfileInput): st
   if (!TRAINING_ETIOLOGY_OPTIONS.some((option) => option.value === input.etiology)) {
     return '请选择病种'
   }
-  if (input.hasDialect && !input.dialectName.trim()) return '请输入方言名称'
+  if (input.hasDialect) {
+    const dialectError = validateDialectProfiles(input.dialects)
+    if (dialectError) return dialectError
+  }
 
   const documentNumber = normalizeDocumentNumber(input.identityDocumentNumber)
   if (input.identityDocumentType === 'id_card' && !isValidMainlandIdCard(documentNumber)) {
@@ -107,9 +112,13 @@ export function buildRegistrationProfileMetadata(
     condition: disabilityCategory,
     etiology: input.etiology as TrainingEtiology,
     ...(input.hasDialect !== null ? { has_dialect: input.hasDialect } : {}),
-    ...(input.hasDialect ? { dialect_name: input.dialectName.trim() } : {}),
+    ...(input.hasDialect !== null ? {
+      dialect_profiles: input.hasDialect ? normalizeDialectProfiles(input.dialects) : [],
+      // Legacy clients may consume a single name only; never concatenate a list.
+      dialect_name: input.hasDialect && input.dialects.length === 1 ? input.dialects[0].name.trim() : '',
+    } : {}),
     identity_document_type: input.identityDocumentType,
     identity_document_number: normalizeDocumentNumber(input.identityDocumentNumber),
-    registration_profile_version: 1,
+    registration_profile_version: 2,
   }
 }

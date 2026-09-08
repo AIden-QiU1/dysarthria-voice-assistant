@@ -4,6 +4,7 @@ export interface DialectCollectionTarget<TExercise> {
   exercise: TExercise
   speechVariant: TrainingSpeechVariant
   utterancePairId?: string
+  dialect?: { name: string; region: string }
 }
 
 /** Pair ids are client-generated lineage only; recording ids remain the upload idempotency key. */
@@ -28,6 +29,7 @@ export function buildSpeechVariantMetadata(options: {
   speechVariant: TrainingSpeechVariant
   utterancePairId?: string
   dialectName?: string
+  dialectRegion?: string
 }): Record<string, string> {
   const metadata: Record<string, string> = {
     speech_variant: options.speechVariant,
@@ -40,6 +42,8 @@ export function buildSpeechVariantMetadata(options: {
   }
   if (options.speechVariant === 'dialect' && options.dialectName?.trim()) {
     metadata.dialect_name = options.dialectName.trim()
+    metadata.label_source = 'user_reported'
+    if (options.dialectRegion?.trim()) metadata.dialect_region = options.dialectRegion.trim()
   }
 
   return metadata

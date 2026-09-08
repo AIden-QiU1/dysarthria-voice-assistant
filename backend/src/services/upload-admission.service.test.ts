@@ -14,13 +14,13 @@ const currentConsent = {
     data_collection_accepted: true,
     commercial_use_accepted: true,
     accepted_at: '2026-09-04T01:00:00.000Z',
-    version: '2026-09-03',
+    version: '2026-09-06',
   },
 }
 
 test('upload consent is accepted only from the current trusted auth snapshot', () => {
   assert.deepEqual(requireCurrentLegalConsent(currentConsent), {
-    version: '2026-09-03',
+    version: '2026-09-06',
     acceptedAt: '2026-09-04T01:00:00.000Z',
   })
   assert.throws(
@@ -77,7 +77,7 @@ test('completion admission replaces client file facts with verified OSS facts', 
 
   assert.equal(admitted.metadata.admission_status, 'admitted')
   assert.equal(admitted.metadata.admission_version, '2026-09-04.1')
-  assert.equal(admitted.metadata.consent_version, '2026-09-03')
+  assert.equal(admitted.metadata.consent_version, '2026-09-06')
   assert.equal(admitted.metadata.consent_accepted_at, '2026-09-04T01:00:00.000Z')
   assert.equal(admitted.metadata.file_size_bytes, 2048)
   assert.equal(admitted.metadata.object_etag, 'etag-1')

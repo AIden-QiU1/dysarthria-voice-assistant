@@ -16,7 +16,7 @@ const currentUserMetadata = {
     data_collection_accepted: true,
     commercial_use_accepted: true,
     accepted_at: '2026-09-04T01:00:00.000Z',
-    version: '2026-09-03',
+    version: '2026-09-06',
   },
 }
 
@@ -37,7 +37,7 @@ const row: TrainingExportContributionRow = {
     object_etag: 'etag-1',
     audio_quality_disposition: 'review',
     consent_scope: 'training_only',
-    consent_version: '2026-09-03',
+    consent_version: '2026-09-06',
     consent_accepted_at: '2026-09-04T01:00:00.000Z',
     admission_status: 'admitted',
     admission_version: '2026-09-04.1',

@@ -1,3 +1,4 @@
+import { MAX_DIALECTS, readDialectProfiles, type DialectProfile } from './src/auth/dialect-profile'
 import React, {
   useEffect,
   useMemo,
@@ -7,6 +8,7 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -157,6 +159,7 @@ interface MobilePendingAttempt {
 }
 
 const mobileBrand = getMobileBranding(Constants.expoConfig?.name)
+const LEGAL_BASE_URL = 'https://voxember.com'
 
 const COLORS = {
   background: '#F5F1EA',
@@ -638,7 +641,7 @@ export default function App() {
               preparedExpression={selectedPreparedExpression ?? workspace.snapshot?.prepared_expression ?? null}
               preparedLines={preparedLines}
               profileHasDialect={Boolean(workspace.snapshot?.registration_profile?.has_dialect)}
-              profileDialectName={workspace.snapshot?.registration_profile?.dialect_name ?? ''}
+              profileDialects={readDialectProfiles(workspace.snapshot?.registration_profile)}
               profileEtiology={workspace.snapshot?.user_profile_memory.etiology ?? ''}
               profileSeverity={workspace.snapshot?.user_profile_memory.severity ?? ''}
               queue={recorderQueue}
@@ -714,13 +717,10 @@ function LoginScreen({
   const [disabilityCategory, setDisabilityCategory] = useState('')
   const [etiology, setEtiology] = useState('')
   const [hasDialect, setHasDialect] = useState<boolean | null>(null)
-  const [dialectName, setDialectName] = useState('')
+  const [dialects, setDialects] = useState<DialectProfile[]>([{ name: '', region: '' }])
   const [identityDocumentType, setIdentityDocumentType] = useState<MobileIdentityDocumentType>('disability_certificate')
   const [identityDocumentNumber, setIdentityDocumentNumber] = useState('')
-  const [privacyAccepted, setPrivacyAccepted] = useState(false)
-  const [sensitiveDataAccepted, setSensitiveDataAccepted] = useState(false)
-  const [dataCollectionAccepted, setDataCollectionAccepted] = useState(false)
-  const [commercialUseAccepted, setCommercialUseAccepted] = useState(false)
+  const [legalConsentAccepted, setLegalConsentAccepted] = useState(false)
   const [otp, setOtp] = useState('')
   const [phoneCodeSent, setPhoneCodeSent] = useState(false)
   const [resendSeconds, setResendSeconds] = useState(0)
@@ -760,15 +760,15 @@ function LoginScreen({
     if (authMode === 'register') {
       const profile: MobileRegistrationProfileInput = {
         province, city, fullName, phone: normalizedPhone, disabilityCategory, etiology,
-        hasDialect, dialectName, identityDocumentType, identityDocumentNumber,
+        hasDialect, dialects, identityDocumentType, identityDocumentNumber,
       }
       const profileError = validateMobileRegistrationProfile(profile)
       if (profileError) {
         setLocalError(profileError)
         return
       }
-      if (!privacyAccepted || !sensitiveDataAccepted || !dataCollectionAccepted || !commercialUseAccepted) {
-        setLocalError('请先确认四项授权后再注册。')
+      if (!legalConsentAccepted) {
+        setLocalError('请先勾选并确认当前版本的统一授权。')
         return
       }
     }
@@ -777,7 +777,7 @@ function LoginScreen({
       ? {
           ...buildMobileRegistrationProfileMetadata({
             province, city, fullName, phone: normalizedPhone, disabilityCategory, etiology,
-            hasDialect, dialectName, identityDocumentType, identityDocumentNumber,
+            hasDialect, dialects, identityDocumentType, identityDocumentNumber,
           }),
           ...buildMobileLegalConsentMetadata(),
         }
@@ -810,15 +810,13 @@ function LoginScreen({
     await auth.verifyPhoneLoginCode({
       phone: normalizedPhone,
       otp,
-      consent: authMode === 'login'
-        ? privacyAccepted && sensitiveDataAccepted && dataCollectionAccepted && commercialUseAccepted
-        : false,
+      consent: authMode === 'login' ? legalConsentAccepted : false,
     })
   }
 
   const registrationProfile: MobileRegistrationProfileInput = {
     province, city, fullName, phone, disabilityCategory, etiology,
-    hasDialect, dialectName, identityDocumentType, identityDocumentNumber,
+    hasDialect, dialects, identityDocumentType, identityDocumentNumber,
   }
 
   return (
@@ -967,8 +965,8 @@ function LoginScreen({
               <Text style={styles.registrationStepActive}>2 填写账户资料</Text>
               <Text style={styles.mutedText}>注册一次，之后直接进入任务。方言资料可跳过。</Text>
               {([
-                ['省份', province, setProvince, '例如：广东省'],
-                ['城市', city, setCity, '例如：广州市'],
+                ['现居省份', province, setProvince, '例如：广东省'],
+                ['现居城市', city, setCity, '例如：广州市'],
                 ['姓名', fullName, setFullName, '请输入真实姓名'],
               ] as const).map(([label, value, setter, placeholder]) => (
                 <View key={label} style={styles.registrationField}>
@@ -981,26 +979,48 @@ function LoginScreen({
               <Text style={styles.fieldLabel}>病种</Text>
               <View style={styles.chipWrap}>{MOBILE_ETIOLOGY_OPTIONS.map(([value, label]) => <Pressable key={value} onPress={() => setEtiology(value)} style={[styles.filterChip, etiology === value ? styles.filterChipActive : null]}><Text style={styles.filterChipText}>{label}</Text></Pressable>)}</View>
               <Text style={styles.fieldLabel}>是否使用方言（可跳过）</Text>
-              <View style={styles.chipWrap}>{([['yes', '有方言'], ['no', '没有方言'], ['skip', '暂不填写']] as const).map(([value, label]) => <Pressable key={value} onPress={() => { const next = value === 'skip' ? null : value === 'yes'; setHasDialect(next); if (!next) setDialectName('') }} style={[styles.filterChip, ((hasDialect === true && value === 'yes') || (hasDialect === false && value === 'no') || (hasDialect === null && value === 'skip')) ? styles.filterChipActive : null]}><Text style={styles.filterChipText}>{label}</Text></Pressable>)}</View>
-              {hasDialect ? <><Text style={styles.fieldLabel}>方言名称</Text><TextInput accessibilityLabel="方言名称" editable={!isBusy && !phoneCodeSent} onChangeText={setDialectName} placeholder="例如：粤语、四川话" placeholderTextColor={COLORS.subtle} style={styles.input} value={dialectName} /></> : null}
+              <View style={styles.chipWrap}>{([['yes', '有方言'], ['no', '没有方言'], ['skip', '暂不填写']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: (value === 'yes' && hasDialect === true) || (value === 'no' && hasDialect === false) || (value === 'skip' && hasDialect === null), disabled: isBusy || phoneCodeSent }} disabled={isBusy || phoneCodeSent} onPress={() => { const next = value === 'skip' ? null : value === 'yes'; setHasDialect(next); if (!next) setDialects([{ name: '', region: '' }]) }} style={[styles.filterChip, ((hasDialect === true && value === 'yes') || (hasDialect === false && value === 'no') || (hasDialect === null && value === 'skip')) ? styles.filterChipActive : null]}><Text style={styles.filterChipText}>{label}</Text></Pressable>)}</View>
+              {hasDialect ? <View style={styles.consentStack}>
+                <Text style={styles.fieldLabel}>常用方言（可添加多种）</Text>
+                <Text style={styles.mutedText}>按实际使用的方言填写，不按出生地或现居地推断。每种方言的来源地区可填省市，不确定可留空。最多 8 种。</Text>
+                {dialects.map((entry, index) => <View key={index} style={styles.registrationField}>
+                  <Text style={styles.fieldLabel}>方言 {index + 1} 名称</Text>
+                  <TextInput accessibilityLabel={`方言 ${index + 1} 名称`} editable={!isBusy && !phoneCodeSent} maxLength={40}
+                    value={entry.name} placeholder="例如：四川话" placeholderTextColor={COLORS.subtle} style={styles.input}
+                    onChangeText={(name) => setDialects((items) => items.map((item, i) => i === index ? { ...item, name } : item))} />
+                  <Text style={styles.fieldLabel}>方言 {index + 1} 来源地区（选填）</Text>
+                  <TextInput accessibilityLabel={`方言 ${index + 1} 来源地区（选填）`} editable={!isBusy && !phoneCodeSent} maxLength={80}
+                    value={entry.region} placeholder="例如：四川成都，不是现居地" placeholderTextColor={COLORS.subtle} style={styles.input}
+                    onChangeText={(region) => setDialects((items) => items.map((item, i) => i === index ? { ...item, region } : item))} />
+                  {dialects.length > 1 ? <Pressable accessibilityRole="button" accessibilityLabel={`移除方言 ${index + 1}`} disabled={isBusy || phoneCodeSent}
+                    onPress={() => setDialects((items) => items.filter((_, i) => i !== index))} style={styles.textAction}><Text style={styles.textActionText}>移除这项</Text></Pressable> : null}
+                </View>)}
+                <Pressable accessibilityRole="button" disabled={isBusy || phoneCodeSent || dialects.length >= MAX_DIALECTS}
+                  accessibilityState={{ disabled: isBusy || phoneCodeSent || dialects.length >= MAX_DIALECTS }}
+                  onPress={() => setDialects((items) => [...items, { name: '', region: '' }])} style={styles.textAction}><Text style={styles.textActionText}>添加另一种方言</Text></Pressable>
+              </View> : null}
               <Text style={styles.fieldLabel}>证件类型</Text>
               <View style={styles.chipWrap}>{([['disability_certificate', '残疾证号'], ['id_card', '身份证号']] as const).map(([value, label]) => <Pressable key={value} onPress={() => setIdentityDocumentType(value)} style={[styles.filterChip, identityDocumentType === value ? styles.filterChipActive : null]}><Text style={styles.filterChipText}>{label}</Text></Pressable>)}</View>
               <TextInput accessibilityLabel="证件号" editable={!isBusy && !phoneCodeSent} onChangeText={setIdentityDocumentNumber} placeholder={identityDocumentType === 'id_card' ? '18 位身份证号' : '请输入残疾证号'} placeholderTextColor={COLORS.subtle} style={styles.input} value={identityDocumentNumber} />
               <View style={styles.consentStack}>
-                <ConsentToggle label="我已阅读《用户隐私》" checked={privacyAccepted} onPress={() => setPrivacyAccepted((value) => !value)} />
-                <ConsentToggle label="我同意处理语音及健康相关敏感信息" checked={sensitiveDataAccepted} onPress={() => setSensitiveDataAccepted((value) => !value)} />
-                <ConsentToggle label="我已阅读《数据采集说明》" checked={dataCollectionAccepted} onPress={() => setDataCollectionAccepted((value) => !value)} />
-                <ConsentToggle label="我同意将授权数据用于商业用途（模型训练、评测、产品改进和服务运营），不会用于违法用途" checked={commercialUseAccepted} onPress={() => setCommercialUseAccepted((value) => !value)} />
+                <LegalDocumentLinks />
+                <ConsentToggle
+                  label={unifiedConsentLabel()}
+                  checked={legalConsentAccepted}
+                  onPress={() => setLegalConsentAccepted((accepted) => !accepted)}
+                />
               </View>
             </View>
           ) : null}
           {authMode === 'login' ? (
             <View style={styles.consentStack}>
               <Text style={styles.mutedText}>登录前请确认当前版本的数据授权。已有账号只需确认一次，确认后即可继续进入任务。</Text>
-              <ConsentToggle label="我已阅读《用户隐私》" checked={privacyAccepted} onPress={() => setPrivacyAccepted((value) => !value)} />
-              <ConsentToggle label="我同意处理语音及健康相关敏感信息" checked={sensitiveDataAccepted} onPress={() => setSensitiveDataAccepted((value) => !value)} />
-              <ConsentToggle label="我已阅读《数据采集说明》" checked={dataCollectionAccepted} onPress={() => setDataCollectionAccepted((value) => !value)} />
-              <ConsentToggle label="我同意将授权数据用于商业用途（模型训练、评测、产品改进和服务运营），不会用于违法用途" checked={commercialUseAccepted} onPress={() => setCommercialUseAccepted((value) => !value)} />
+              <LegalDocumentLinks />
+              <ConsentToggle
+                label={unifiedConsentLabel()}
+                checked={legalConsentAccepted}
+                onPress={() => setLegalConsentAccepted((accepted) => !accepted)}
+              />
             </View>
           ) : null}
           {localError || friendlyError(auth.errorMessage) ? (
@@ -1023,11 +1043,11 @@ function LoginScreen({
                 if (authMode === 'register') {
                   const profileError = validateMobileRegistrationProfile(registrationProfile)
                   if (profileError) { setLocalError(profileError); return }
-                  if (!privacyAccepted || !sensitiveDataAccepted || !dataCollectionAccepted || !commercialUseAccepted) { setLocalError('请先确认四项授权后再注册。'); return }
+                  if (!legalConsentAccepted) { setLocalError('请先勾选并确认当前版本的统一授权。'); return }
                   void auth.signUpWithPassword({ email, password, metadata: { ...buildMobileRegistrationProfileMetadata(registrationProfile), ...buildMobileLegalConsentMetadata() } })
                 } else {
-                  if (!privacyAccepted || !sensitiveDataAccepted || !dataCollectionAccepted || !commercialUseAccepted) {
-                    setLocalError('请先确认四项授权后再登录。')
+                  if (!legalConsentAccepted) {
+                    setLocalError('请先勾选并确认当前版本的统一授权。')
                     return
                   }
                   void auth.signInWithPassword({ email, password, consent: true })
@@ -1704,7 +1724,7 @@ function PracticeScreen({
   preparedExpression,
   preparedLines,
   profileHasDialect,
-  profileDialectName,
+  profileDialects,
   profileEtiology,
   profileSeverity,
   queue,
@@ -1722,7 +1742,7 @@ function PracticeScreen({
   preparedExpression: MobileWorkspaceSnapshotContract['prepared_expression']
   preparedLines: string[]
   profileHasDialect: boolean
-  profileDialectName: string
+  profileDialects: DialectProfile[]
   profileEtiology: string
   profileSeverity: string
   queue: ReturnType<typeof useNativeRecorderQueue>
@@ -1793,9 +1813,13 @@ function PracticeScreen({
     understandsConsent: consentReady && hasCurrentLegalConsent,
   }, flow === 'assessment' ? '开始说这个词' : '开始说这句话')
   const attemptLocked = pendingAttempt !== null || attemptAction !== 'idle'
+  const [selectedDialectKey, setSelectedDialectKey] = useState('')
+  const selectedDialect = profileDialects.find((entry) => JSON.stringify(entry) === selectedDialectKey)
+    ?? (profileDialects.length === 1 ? profileDialects[0] : undefined)
+  const profileDialectName = selectedDialect?.name ?? ''
   const dialectPairEnabled = shouldOfferMobileDialectPair({
     hasDialect: profileHasDialect,
-    dialectName: profileDialectName,
+    dialectName: profileDialects[0]?.name,
     isAssessment: flow === 'assessment',
   })
   const activeSpeechVariant: MobileTrainingSpeechVariant = pendingDialectTarget ? 'dialect' : 'mandarin'
@@ -1888,6 +1912,10 @@ function PracticeScreen({
     const captureId = `mobile-training-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     if (!authUserId) return false
     const speechVariant: MobileTrainingSpeechVariant = pendingDialectTarget ? 'dialect' : 'mandarin'
+    if (speechVariant === 'dialect' && !selectedDialect) {
+      Alert.alert('请选择方言', '请先选择本次录音使用的方言，也可以跳过。')
+      return false
+    }
     const utterancePairId = pendingDialectTarget?.utterancePairId
       ?? (dialectPairEnabled ? createMobileUtterancePairId() : undefined)
     const captureExercise = pendingDialectTarget?.exercise ?? effectiveExercise
@@ -1898,6 +1926,7 @@ function PracticeScreen({
       exerciseIndex,
       preparedExpressionId: usesPreparedMaterial ? preparedExpression?.id : undefined,
       speechVariant,
+      dialect: speechVariant === 'dialect' ? selectedDialect : undefined,
       utterancePairId,
     }
     activeCaptureRef.current = captureSnapshot
@@ -1922,13 +1951,11 @@ function PracticeScreen({
         etiology: profileEtiology || undefined,
         severity: profileSeverity || undefined,
         reading_assistance_used: readingAssistanceKeysRef.current.has(readingAssistanceKey),
-        ...(profileHasDialect && profileDialectName.trim()
-          ? { dialect_name_user_reported: profileDialectName.trim(), label_source: 'user_reported' }
-          : {}),
         ...buildMobileSpeechVariantMetadata({
           speechVariant,
           utterancePairId,
-          dialectName: profileDialectName,
+          dialectName: captureSnapshot.dialect?.name,
+          dialectRegion: captureSnapshot.dialect?.region,
         }),
       },
     })
@@ -1989,7 +2016,8 @@ function PracticeScreen({
       ...buildMobileSpeechVariantMetadata({
         speechVariant: capture.speechVariant,
         utterancePairId: capture.utterancePairId,
-        dialectName: profileDialectName,
+        dialectName: capture.dialect?.name,
+        dialectRegion: capture.dialect?.region,
       }),
     })
     const assessmentAttempt = flow === 'assessment'
@@ -2179,6 +2207,16 @@ function PracticeScreen({
             {activeSpeechVariant === 'dialect' ? (
               <Text style={styles.dialectPrompt}>同一句用你最自然的方言说法表达，不要求逐字对应普通话。</Text>
             ) : null}
+            {activeSpeechVariant === 'dialect' ? <View style={styles.consentStack}>
+              <Text style={styles.preflightCopy}>本次录音使用的方言（只标记这一条方言录音）</Text>
+              <View style={styles.chipWrap}>{profileDialects.map((entry) => <Pressable key={JSON.stringify(entry)} accessibilityRole="radio"
+                accessibilityLabel={`${entry.name}，${entry.region || '来源地区未填写'}`}
+                accessibilityState={{ checked: selectedDialect === entry, disabled: queue.isRecording || attemptLocked }}
+                disabled={queue.isRecording || attemptLocked} onPress={() => setSelectedDialectKey(JSON.stringify(entry))}
+                style={[styles.filterChip, selectedDialect === entry ? styles.filterChipActive : null]}>
+                <Text style={styles.filterChipText}>{entry.name} · {entry.region || '来源地区未填写'}</Text>
+              </Pressable>)}</View>
+            </View> : null}
             <View style={styles.preflightPanel}>
               <Text style={styles.preflightTitle}>{flow === 'assessment' ? '筛查前确认' : '录音前确认'}</Text>
               <Text style={styles.preflightCopy}>只需确认一次，本组录音期间保持有效。</Text>
@@ -3065,6 +3103,7 @@ function AccountScreen({
       <Text style={styles.privacyCopy}>
         本地录音在你删除前会保留在这台设备上。诊断不包含录音、转写、聊天内容或登录凭据。
       </Text>
+      <LegalDocumentLinks />
     </View>
   )
 }
@@ -3182,6 +3221,35 @@ function ConsentToggle({ label, checked, onPress }: { label: string; checked: bo
       <Text style={styles.consentLabel}>{label}</Text>
     </Pressable>
   )
+}
+
+function LegalDocumentLinks() {
+  const openDocument = (path: string): void => {
+    void Linking.openURL(`${LEGAL_BASE_URL}${path}`).catch(() => {
+      Alert.alert('暂时无法打开', `请在浏览器访问 ${LEGAL_BASE_URL}${path}`)
+    })
+  }
+
+  return (
+    <View accessibilityRole="summary" style={styles.legalLinks}>
+      <Pressable accessibilityRole="link" onPress={() => openDocument('/privacy')}>
+        <Text style={styles.legalLinkText}>查看《生声不息隐私政策》</Text>
+      </Pressable>
+      <Pressable accessibilityRole="link" onPress={() => openDocument('/terms')}>
+        <Text style={styles.legalLinkText}>查看《生声不息用户服务协议》</Text>
+      </Pressable>
+      <Pressable accessibilityRole="link" onPress={() => openDocument('/data-collection')}>
+        <Text style={styles.legalLinkText}>查看《数据采集说明》</Text>
+      </Pressable>
+      <Pressable accessibilityRole="link" onPress={() => openDocument('/third-party-services')}>
+        <Text style={styles.legalLinkText}>查看《第三方服务与 SDK 清单》</Text>
+      </Pressable>
+    </View>
+  )
+}
+
+function unifiedConsentLabel(): string {
+  return '我已阅读并统一同意《生声不息用户服务协议》《生声不息隐私政策》《数据采集说明》，并同意处理语音及健康相关敏感信息，以及将授权数据用于模型训练、评测、产品改进和服务运营等商业用途'
 }
 
 function InlineMessage({ text, tone }: { text: string; tone: 'danger' | 'success' }) {
@@ -3768,6 +3836,8 @@ const styles = StyleSheet.create({
   consentRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 8, minHeight: 38 },
   consentCheck: { color: COLORS.accent, fontSize: 18, fontWeight: '800', lineHeight: 22 },
   consentLabel: { color: COLORS.muted, flex: 1, fontSize: 12, lineHeight: 19 },
+  legalLinks: { gap: 8, marginBottom: 2 },
+  legalLinkText: { color: COLORS.accent, fontSize: 12, fontWeight: '700', lineHeight: 19, textDecorationLine: 'underline' },
   otpInput: { fontSize: 20, letterSpacing: 8, textAlign: 'center' },
   phoneCodeActions: { flexDirection: 'row', justifyContent: 'space-between' },
   textAction: { alignItems: 'center', justifyContent: 'center', minHeight: 40, paddingHorizontal: 4 },

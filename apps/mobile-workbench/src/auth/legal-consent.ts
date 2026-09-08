@@ -1,4 +1,4 @@
-export const MOBILE_LEGAL_CONSENT_VERSION = '2026-09-03'
+export const MOBILE_LEGAL_CONSENT_VERSION = '2026-09-06'
 
 export interface MobileLegalConsentMetadata {
   legal_consent: {

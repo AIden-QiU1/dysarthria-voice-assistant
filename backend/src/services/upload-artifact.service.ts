@@ -11,7 +11,7 @@ const UPLOAD_METADATA_KEYS = new Set([
   // Training labels and target/transcript separation.
   'kind', 'sentence_id', 'target_text', 'spoken_text', 'recognized_text',
   'prompt_aligned_transcript', 'disability_category', 'condition', 'etiology', 'severity', 'age_band', 'sex',
-  'speech_variant', 'dialect_name', 'dialect_name_user_reported', 'dialect_code',
+  'speech_variant', 'dialect_name', 'dialect_region', 'dialect_name_user_reported', 'dialect_code',
   'language_tag', 'prompt_language', 'spoken_language', 'label_source', 'utterance_pair_id',
   'consent_scope', 'consent_version', 'consent_accepted_at', 'collection_plan_id',
   'admission_status', 'admission_version', 'admission_verified_at', 'object_etag',

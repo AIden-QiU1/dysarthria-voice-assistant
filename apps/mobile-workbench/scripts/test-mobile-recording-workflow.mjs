@@ -55,6 +55,7 @@ assert.deepEqual(buildMobileSpeechVariantMetadata({ speechVariant: 'dialect', ut
   spoken_language: 'zh-dialect',
   utterance_pair_id: pairId,
   dialect_name: '粤语',
+    label_source: 'user_reported',
 })
 
 const runSerially = createMobileSerialExecutor()
@@ -102,3 +103,8 @@ const legalConsentSource = await readFile(path.resolve('src/auth/legal-consent.t
 assert.match(legalConsentSource, /hasCurrentMobileLegalConsent/)
 
 console.log('mobile recording workflow tests passed')
+
+const dialectOrigin = { dialectName: '四川话', dialectRegion: '四川成都' }
+assert.equal(buildMobileSpeechVariantMetadata({ ...dialectOrigin, speechVariant: 'dialect' }).dialect_region, '四川成都')
+assert.equal('dialect_region' in buildMobileSpeechVariantMetadata({ ...dialectOrigin, speechVariant: 'mandarin' }), false)
+assert.equal('dialect_name' in buildMobileSpeechVariantMetadata({ ...dialectOrigin, speechVariant: 'mandarin' }), false)

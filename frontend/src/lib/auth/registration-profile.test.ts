@@ -14,7 +14,7 @@ const validProfile: RegistrationProfileInput = {
   disabilityCategory: '言语残疾',
   etiology: 'stroke',
   hasDialect: true,
-  dialectName: '粤语',
+  dialects: [{ name: '粤语', region: '广东广州' }],
   identityDocumentType: 'id_card',
   identityDocumentNumber: '11010519491231002X',
 }
@@ -30,9 +30,10 @@ test('registration profile builds normalized metadata for a new account', () => 
     etiology: 'stroke',
     has_dialect: true,
     dialect_name: '粤语',
+    dialect_profiles: [{ name: '粤语', region: '广东广州' }],
     identity_document_type: 'id_card',
     identity_document_number: '11010519491231002X',
-    registration_profile_version: 1,
+    registration_profile_version: 2,
   })
 })
 
@@ -56,7 +57,7 @@ test('registration profile allows dialect information to be skipped', () => {
   const metadata = buildRegistrationProfileMetadata({
     ...validProfile,
     hasDialect: null,
-    dialectName: '',
+    dialects: [],
   })
 
   assert.equal('has_dialect' in metadata, false)

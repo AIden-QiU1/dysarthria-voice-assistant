@@ -1,6 +1,6 @@
 import type { User } from '@supabase/supabase-js'
 
-export const LEGAL_CONSENT_VERSION = '2026-09-03'
+export const LEGAL_CONSENT_VERSION = '2026-09-06'
 
 const LOCAL_STORAGE_KEY = 'voxflame_legal_consent'
 

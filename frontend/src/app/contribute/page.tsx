@@ -1,5 +1,7 @@
 'use client'
 
+import { readDialectProfiles, type DialectProfile } from '@/lib/auth/dialect-profile'
+
 import Link from 'next/link'
 import {
   type ChangeEvent,
@@ -133,6 +135,7 @@ interface TrainingUploadLabels {
   severity?: TrainingSeverity
   hasDialect?: boolean
   dialectName?: string
+  dialectRegion?: string
 }
 
 interface PracticeAttempt {
@@ -150,6 +153,7 @@ interface PracticeAttempt {
   uploadReceipt: UploadReceipt | null
   speechVariant: TrainingSpeechVariant
   utterancePairId?: string
+  dialect?: DialectProfile
 }
 
 interface NoticeState {
@@ -303,6 +307,7 @@ function buildUploadMetadata(
       speechVariant,
       utterancePairId,
       dialectName: uploadLabels?.dialectName,
+      dialectRegion: uploadLabels?.dialectRegion,
     }),
   }
 
@@ -329,11 +334,6 @@ function buildUploadMetadata(
   }
   if (uploadLabels?.etiology && uploadLabels.etiology !== DEFAULT_TRAINING_GUIDANCE_PROFILE.etiology) {
     metadata.etiology = uploadLabels.etiology
-  }
-
-  if (uploadLabels?.hasDialect && uploadLabels.dialectName) {
-    metadata.dialect_name_user_reported = uploadLabels.dialectName
-    metadata.label_source = 'user_reported'
   }
 
   if (uploadLabels?.severity && uploadLabels.severity !== DEFAULT_TRAINING_GUIDANCE_PROFILE.severity) {
@@ -847,6 +847,7 @@ export function TrainingRecorderPage({
   const discardedAttemptIdsRef = useRef<Set<number>>(new Set())
   const pendingReplacementExerciseRef = useRef<DialectCollectionTarget<PracticeExercise> | null>(null)
   const recordingExerciseRef = useRef<PracticeExercise | null>(null)
+  const recordingDialectRef = useRef<DialectProfile | undefined>(undefined)
   const recordingSpeechVariantRef = useRef<TrainingSpeechVariant>('mandarin')
   const recordingUtterancePairIdRef = useRef<string | undefined>(undefined)
   const exerciseSelectionTouchedRef = useRef(false)
@@ -1151,6 +1152,10 @@ export function TrainingRecorderPage({
     ),
     [assessmentAttemptsByExercise, isAssessmentTopic],
   )
+  const dialectOptions = useMemo(() => readDialectProfiles(workspaceSnapshot?.registration_profile), [workspaceSnapshot?.registration_profile])
+  const [selectedDialectKey, setSelectedDialectKey] = useState('')
+  const selectedDialect = dialectOptions.find((entry) => JSON.stringify(entry) === selectedDialectKey)
+    ?? (dialectOptions.length === 1 ? dialectOptions[0] : undefined)
   const trainingUploadLabels = useMemo<TrainingUploadLabels>(() => {
     return {
       disabilityCategory: workspaceSnapshot?.registration_profile?.disability_category,
@@ -1160,20 +1165,22 @@ export function TrainingRecorderPage({
         ? undefined
         : workspaceSnapshot?.user_profile_memory?.severity as TrainingSeverity | undefined,
       hasDialect: workspaceSnapshot?.registration_profile?.has_dialect,
-      dialectName: workspaceSnapshot?.registration_profile?.dialect_name,
+      dialectName: selectedDialect?.name,
+      dialectRegion: selectedDialect?.region,
     }
   }, [
     isAssessmentTopic,
     workspaceSnapshot?.registration_profile?.condition,
     workspaceSnapshot?.registration_profile?.disability_category,
-    workspaceSnapshot?.registration_profile?.dialect_name,
+    selectedDialect?.name,
+    selectedDialect?.region,
     workspaceSnapshot?.registration_profile?.has_dialect,
     workspaceSnapshot?.user_profile_memory?.etiology,
     workspaceSnapshot?.user_profile_memory?.severity,
   ])
   const dialectPairEnabled = shouldOfferDialectPair({
     hasDialect: Boolean(trainingUploadLabels.hasDialect),
-    dialectName: trainingUploadLabels.dialectName,
+    dialectName: dialectOptions[0]?.name,
     isAssessment: isAssessmentTopic,
   })
   const activeSpeechVariant = pendingDialectTarget?.speechVariant ?? 'mandarin'
@@ -1313,6 +1320,7 @@ export function TrainingRecorderPage({
       return
     }
 
+    setSelectedDialectKey('')
     setSessionPracticedExerciseIds([])
     setAssessmentAttemptsByExercise({})
     setSelectedPhonologyGroupId(topicSelection.category === '音系强化' ? DEFAULT_PHONOLOGY_GROUP_ID : 'all')
@@ -1561,6 +1569,11 @@ export function TrainingRecorderPage({
       speechVariant: 'mandarin',
       utterancePairId: dialectPairEnabled ? createUtterancePairId() : undefined,
     }
+    if (collectionTarget.speechVariant === 'dialect' && !selectedDialect) {
+      setNotice({ tone: 'info', message: '请先选择本次录音使用的方言，也可以跳过。' })
+      return
+    }
+    recordingDialectRef.current = collectionTarget.speechVariant === 'dialect' ? selectedDialect : undefined
     setAttempt(null)
     setNotice(null)
     setCollectionFlowStep('record')
@@ -1581,7 +1594,7 @@ export function TrainingRecorderPage({
         message: '录音失败，请重试。',
       })
     }
-  }, [activeCollectionExercise, collectionPreflightReady, dialectPairEnabled, isProcessing, isReadingAssistancePlaying, pendingDialectTarget, startRecording])
+  }, [selectedDialect, activeCollectionExercise, collectionPreflightReady, dialectPairEnabled, isProcessing, isReadingAssistancePlaying, pendingDialectTarget, startRecording])
 
   const removeAttemptFromProgress = useCallback((attemptToRemove: PracticeAttempt) => {
     if (attemptToRemove.speechVariant === 'dialect') {
@@ -1601,6 +1614,12 @@ export function TrainingRecorderPage({
 
   const startReplacementRecording = useCallback(async (targetToRetry: DialectCollectionTarget<PracticeExercise>) => {
     const exerciseToRetry = targetToRetry.exercise
+    if (targetToRetry.speechVariant === 'dialect' && !targetToRetry.dialect) {
+      setIsReplacingAttempt(false)
+      setNotice({ tone: 'info', message: '请先选择本次录音使用的方言，再开始录音。' })
+      return
+    }
+    recordingDialectRef.current = targetToRetry.dialect
     exerciseSelectionTouchedRef.current = true
     setSelectedExerciseId(exerciseToRetry.id)
     setAttempt(null)
@@ -1664,6 +1683,7 @@ export function TrainingRecorderPage({
         exercise: exerciseToRetry,
         speechVariant: attemptToReplace.speechVariant,
         utterancePairId: attemptToReplace.utterancePairId,
+        dialect: attemptToReplace.dialect,
       })
       return
     }
@@ -1682,6 +1702,7 @@ export function TrainingRecorderPage({
         exercise: exerciseToRetry,
         speechVariant: attemptToReplace?.speechVariant ?? activeSpeechVariant,
         utterancePairId: attemptToReplace?.utterancePairId ?? pendingDialectTarget?.utterancePairId,
+        dialect: attemptToReplace?.dialect ?? selectedDialect,
       })
       return
     }
@@ -1690,6 +1711,7 @@ export function TrainingRecorderPage({
       exercise: exerciseToRetry,
       speechVariant: attemptToReplace?.speechVariant ?? activeSpeechVariant,
       utterancePairId: attemptToReplace?.utterancePairId ?? pendingDialectTarget?.utterancePairId,
+      dialect: attemptToReplace?.dialect ?? selectedDialect,
     }
     setIsReplacingAttempt(true)
     discardedAttemptIdsRef.current.add(attemptToReplace.createdAt)
@@ -1741,9 +1763,11 @@ export function TrainingRecorderPage({
       exercise: exerciseToRetry,
       speechVariant: attemptToReplace?.speechVariant ?? activeSpeechVariant,
       utterancePairId: attemptToReplace?.utterancePairId ?? pendingDialectTarget?.utterancePairId,
+      dialect: attemptToReplace?.dialect ?? selectedDialect,
     })
   }, [
     attempt,
+    selectedDialect,
     activeSpeechVariant,
     collectionPreflightReady,
     currentExercise,
@@ -1863,7 +1887,7 @@ export function TrainingRecorderPage({
         attemptToPersist.feedback,
         attemptToPersist.sampleQuality,
         attemptToPersist.readingAssistanceUsed,
-        trainingUploadLabels,
+        { ...trainingUploadLabels, dialectName: attemptToPersist.dialect?.name, dialectRegion: attemptToPersist.dialect?.region },
         collectionPlanId,
         readingArticle,
         effectiveReadingRoundId,
@@ -2088,6 +2112,7 @@ export function TrainingRecorderPage({
       return
     }
 
+    const dialect = recordingDialectRef.current
     const speechVariant = recordingSpeechVariantRef.current
     const utterancePairId = recordingUtterancePairIdRef.current
     const readingAssistanceUsed = recordingReadingAssistanceRef.current
@@ -2125,6 +2150,7 @@ export function TrainingRecorderPage({
             : 'idle',
           uploadReceipt: null,
           speechVariant,
+          dialect,
           utterancePairId,
         }
       }
@@ -2579,6 +2605,20 @@ export function TrainingRecorderPage({
                 </div>
               </div>
 
+              {activeSpeechVariant === 'dialect' ? (
+                <div className="mt-4 space-y-2">
+                  <label htmlFor="recording-dialect" className="text-sm font-medium text-stone-900">本次录音使用的方言</label>
+                  <select id="recording-dialect" value={selectedDialect ? JSON.stringify(selectedDialect) : ''}
+                    disabled={isRecording || isProcessing || isReplacingAttempt}
+                    aria-describedby="recording-dialect-help"
+                    onChange={(event) => setSelectedDialectKey(event.target.value)}
+                    className="min-h-11 w-full rounded-md border border-input bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
+                    <option value="">请选择一种方言</option>
+                    {dialectOptions.map((entry) => <option key={JSON.stringify(entry)} value={JSON.stringify(entry)}>{entry.name}{entry.region ? ` · ${entry.region}` : ' · 来源地区未填写'}</option>)}
+                  </select>
+                  <p id="recording-dialect-help" className="text-pretty text-sm text-stone-600">只标记这条方言录音；普通话录音不会使用此标签。录音开始后不能更改。</p>
+                </div>
+              ) : null}
               <div className="mt-6 rounded-3xl bg-amber-50 px-5 py-7 text-center ring-1 ring-amber-200 sm:px-8 sm:py-9">
                 <p className="text-balance text-2xl font-semibold leading-relaxed text-stone-950 sm:text-3xl">{activeCollectionExercise?.text}</p>
                 {currentPhonologyTarget?.focus ? (
@@ -2766,7 +2806,7 @@ export function TrainingRecorderPage({
                     {isReplacingAttempt
                       ? '先撤回旧录音，再重新录这一句'
                       : attempt.speechVariant === 'dialect'
-                        ? `${trainingUploadLabels.dialectName ?? '方言'}录音已经完整收下`
+                        ? `${attempt.dialect?.name ?? '方言'}录音已经完整收下`
                         : '很好，这一句已经完整收下了'}
                   </h2>
                   <p className={cn('mt-1 text-pretty text-sm leading-6', isReplacingAttempt ? 'text-amber-900' : 'text-emerald-800')}>
