@@ -93,3 +93,31 @@ entries:
     action: 并行撤回外部清理、合并 workspace profile 读取、增加活动与目录短缓存；补阶段耗时指标。
     validation: discard P95 <3s、progress P95 <2s、无跨账户缓存命中、部分清理可安全重试。
     state: validating
+  - feedback_id: FB-006
+    research_id: RO-017
+    source: user
+    observed_at: 2026-09-07
+    scenario: 余杭经营为主并拟在杭州其他区与上海设子公司的政策汇报
+    observation: 用户要求将政策内容改为合伙人可读的正式商务布局建议，反对余杭优先标题、学术化表述及内部核验流水。
+    severity: medium
+    failure_type: unknown
+    evidence_ref: research/product-engineering/RO-017-compute-policy-briefing-2026-09-07.md
+    hypothesis: 以官方原文分层标记状态、费用归属及拟设主体资格，可避免把最高补贴误作为当前可得收入。
+    owner: company management + finance
+    action: 重写8页商务报告并生成PDF，正文提供区域比较、经营分工与实施安排，9项官方依据集中附录；完整12份证据继续保留。
+    validation: PDF文本及排版完整；官方日期可追溯；缺失细则明确标记；公司资格获得书面回复前不计确定收益。
+    state: validating
+  - feedback_id: FB-007
+    research_id: RO-018
+    source: user
+    observed_at: 2026-09-07
+    scenario: 1000用户、2万小时采集的阿里云充值及两台8卡GPU谈判
+    observation: 用户要求结合现有8页政策PDF生成合伙人充值申请与阿里云算力谈判两份文档，原飞书配置/报价表不可见。
+    severity: medium
+    failure_type: unknown
+    evidence_ref: research/product-engineering/RO-018-aliyun-budget-and-compute-2026-09-07.md
+    hypothesis: 将基础云、GPU专项、政策、赠额与容量分开可减少过度承诺，并支持可核验报价。
+    owner: company management + finance + platform operations
+    action: 生成中文Word/PDF，补建议预算和参数边界，建立报价/试机/签约条件；不执行充值或采购。
+    validation: 金额与配置求和、全文和版式检查、官方来源哈希；独立财务与供方书面审核仍待完成。
+    state: validating

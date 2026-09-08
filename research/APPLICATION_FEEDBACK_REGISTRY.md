@@ -41,6 +41,10 @@
 | RF-014 | LiveKit/ASR/Agent 实时并发容量 | [RO-014 LiveKit 报告](voice-agent/RO-014-livekit-asr-concurrency-capacity-2026-08-29.md) · [跨模态对照](agent-systems/RO-014-cross-modal-realtime-capacity-2026-08-29.md) · LiveKit 官方文档 | 单 Worker/外部 provider 可能是瓶颈，但尚无真实 RTC 容量结论；不能承诺 1000 路 | `validate` | livekit_agent + 平台 owner；先做 5→10→20→50 路，达标再考虑多 Worker/扩容 | Job、ASR/TTS/LLM P95/P99、拒绝/429、丢包、CPU/RAM/FD |
 | RF-016 | Web/App 查表与搜索效率 | [RO-016 查表与搜索效率](product-engineering/RO-016-cross-surface-lookup-efficiency-2026-09-03.md) · 本地调用链审计、Supabase migration、OSS 客户端契约 | 已并行化撤回外部清理、复用 workspace profile、增加活动/目录短缓存；尚无生产 P95 与大历史基准，不能宣称整体延迟达标 | `validate` | frontend + backend + mobile；补阶段耗时、缓存命中和 1k/5k/20k 基准，达标后再升级 | discard/progress/workspace/catalog P95、重复请求率、跨账号隔离、部分清理恢复率 |
 
+| RF-017 | 算力政策与子公司布局 | [RO-017报告与交付记录](product-engineering/RO-017-compute-policy-briefing-2026-09-07.md) · 12个官方网页正文及SHA-256清单 | 已完成8页合伙人商务报告及9项官方依据附录；缺少完整细则与企业资格，不能确认可得补贴 | `hold` | 管理层/财务取得修订细则和书面资格回复；仅供内部汇报，不执行设立、采购、迁移或申报 | 文本排版完整、原稿未改写、官方依据可追溯；独立确认资格前不纳入确定补贴收入 |
+
+| RF-018 | 阿里云充值与GPU商务规划 | [RO-018交付与依据](product-engineering/RO-018-aliyun-budget-and-compute-2026-09-07.md) · 原政策PDF与7份官方原文 | 两份中文Word/PDF已形成审批和征询稿；配置预算为建议，资格/报价/GPU性能未确认，采集与RTC容量严格区分 | `hold` | 管理层/财务/技术独立审核后询价和试机，不执行充值或采购 | 金额/规格一致、来源和全文完整；书面报价、试机、主体资格与合同条款后再决策 |
+
 每个新条目至少回答：
 
 - 来源是否固定到 commit / 版本？
