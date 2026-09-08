@@ -303,6 +303,18 @@ assert(appSource.includes('collectionControlState.navigationDisabled'), 'sentenc
 assert(appSource.includes("只需确认一次，本组录音期间保持有效。"), 'recording preflight must remain next to the main action')
 assert(!appSource.includes("Alert.alert('先完成采集前确认'"), 'hidden preflight must not fall back to an alert-only dead end')
 assert(appSource.includes('mainScrollRef.current?.scrollTo({ animated: false, y: 0 })'), 'task route changes must reset the shared mobile scroll position')
+// Retain main's layout guard while using the current Mandarin/dialect target.
+const targetIndex = appSource.indexOf('<Text style={styles.trainingTarget}>{activeTargetText}</Text>')
+const preflightIndex = appSource.indexOf('<View style={styles.preflightPanel}>', targetIndex)
+const recordingActionIndex = appSource.indexOf('<PrimaryButton', preflightIndex)
+assert(targetIndex >= 0 && preflightIndex > targetIndex && recordingActionIndex > preflightIndex, 'recording preflight must render between the target sentence and primary recording action')
+const preflightSource = appSource.slice(preflightIndex, recordingActionIndex)
+for (const checkedState of ['environmentReady', 'distanceReady', 'consentReady']) {
+  const checkbox = preflightSource.match(new RegExp(`<Pressable\\b[^>]*accessibilityState=\\{\\{ checked: ${checkedState},[^>]*>`))?.[0]
+  assert(checkbox?.includes('accessibilityLabel='), `${checkedState} preflight must have an accessible name`)
+  assert(checkbox?.includes('disabled: queue.isRecording || attemptLocked'), `${checkedState} must announce its locked state`)
+  assert(checkbox?.includes('disabled={queue.isRecording || attemptLocked}'), `${checkedState} must stay locked during recording and attempt confirmation`)
+}
 for (const taskScreen of [
   'function CommunicationHomeScreen',
   'function QuickExpressionScreen',

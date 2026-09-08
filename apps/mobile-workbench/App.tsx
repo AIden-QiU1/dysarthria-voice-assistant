@@ -2222,16 +2222,31 @@ function PracticeScreen({
               <Text style={styles.preflightCopy}>只需确认一次，本组录音期间保持有效。</Text>
               <View style={styles.preflightChecklist}>
                 <View style={styles.preflightShortRow}>
-                  <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: environmentReady }} onPress={() => setEnvironmentReady((value) => !value)} style={[styles.preflightCheck, styles.preflightShortCheck, environmentReady ? styles.preflightCheckActive : null]}>
+                  <Pressable
+                    accessibilityLabel="环境安静"
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: environmentReady, disabled: queue.isRecording || attemptLocked }}
+                    disabled={queue.isRecording || attemptLocked}
+                    onPress={() => setEnvironmentReady((value) => !value)} style={[styles.preflightCheck, styles.preflightShortCheck, environmentReady ? styles.preflightCheckActive : null, queue.isRecording || attemptLocked ? styles.disabled : null]}>
                     <Text style={styles.checkMark}>{environmentReady ? '✓' : '○'}</Text>
                     <Text style={styles.preflightCheckText}>环境安静</Text>
                   </Pressable>
-                  <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: distanceReady }} onPress={() => setDistanceReady((value) => !value)} style={[styles.preflightCheck, styles.preflightShortCheck, distanceReady ? styles.preflightCheckActive : null]}>
+                  <Pressable
+                    accessibilityLabel="麦克风位置稳定"
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: distanceReady, disabled: queue.isRecording || attemptLocked }}
+                    disabled={queue.isRecording || attemptLocked}
+                    onPress={() => setDistanceReady((value) => !value)} style={[styles.preflightCheck, styles.preflightShortCheck, distanceReady ? styles.preflightCheckActive : null, queue.isRecording || attemptLocked ? styles.disabled : null]}>
                     <Text style={styles.checkMark}>{distanceReady ? '✓' : '○'}</Text>
                     <Text style={styles.preflightCheckText}>位置稳定</Text>
                   </Pressable>
                 </View>
-                <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: consentReady }} onPress={() => setConsentReady((value) => !value)} style={[styles.preflightCheck, consentReady ? styles.preflightCheckActive : null]}>
+                <Pressable
+                    accessibilityLabel={hasCurrentLegalConsent ? (flow === 'assessment' ? '同意本次录音用于筛查支持和系统改进' : '同意本次录音用于训练') : '当前账号需要重新登录并确认数据授权'}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: consentReady, disabled: queue.isRecording || attemptLocked }}
+                    disabled={queue.isRecording || attemptLocked}
+                    onPress={() => setConsentReady((value) => !value)} style={[styles.preflightCheck, consentReady ? styles.preflightCheckActive : null, queue.isRecording || attemptLocked ? styles.disabled : null]}>
                   <Text style={styles.checkMark}>{consentReady ? '✓' : '○'}</Text>
                   <Text style={styles.preflightCheckText}>{hasCurrentLegalConsent ? (flow === 'assessment' ? '我同意本次录音用于筛查支持和系统改进' : '我同意本次录音用于训练') : '当前账号需要重新登录并确认数据授权'}</Text>
                 </Pressable>
@@ -3573,8 +3588,6 @@ const styles = StyleSheet.create({
     padding: 18,
     width: '100%',
   },
-  checkRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  checkButton: { alignItems: 'center', backgroundColor: COLORS.surfaceMuted, borderColor: COLORS.border, borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 6, paddingHorizontal: 10, paddingVertical: 9 },
   checkMark: { color: COLORS.accent, fontSize: 17, fontWeight: '800' },
   preflightPanel: { backgroundColor: '#312A25', borderColor: '#514840', borderRadius: 16, borderWidth: 1, gap: 10, padding: 14 },
   preflightTitle: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
