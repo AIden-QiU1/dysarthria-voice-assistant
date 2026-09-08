@@ -1,6 +1,0 @@
-- generic [active] [ref=e1]:
-  - link "跳转到主要内容" [ref=e2] [cursor=pointer]:
-    - /url: "#main-content"
-  - paragraph [ref=e5]: 正在准备语音共建平台首页...
-  - region "Notifications (F8)":
-    - list
