@@ -164,10 +164,21 @@ def load_config() -> LiveKitAgentConfig:
             .strip()
         ),
         dashscope_tts_model=(
-            os.getenv("QWEN_TTS_REALTIME_MODEL", "qwen3-tts-flash-realtime").strip()
+            (
+                os.getenv("DASHSCOPE_TTS_MODEL")
+                or os.getenv("ALIYUN_TTS_MODEL")
+                or os.getenv("QWEN_TTS_REALTIME_MODEL")
+                or "qwen3-tts-flash-realtime"
+            ).strip()
             or "qwen3-tts-flash-realtime"
         ),
-        dashscope_tts_voice=os.getenv("QWEN_TTS_REALTIME_VOICE", "Cherry").strip() or "Cherry",
+        dashscope_tts_voice=(
+            os.getenv("DASHSCOPE_TTS_VOICE")
+            or os.getenv("ALIYUN_TTS_VOICE")
+            or os.getenv("QWEN_TTS_REALTIME_VOICE")
+            or "Cherry"
+        ).strip()
+        or "Cherry",
         dashscope_tts_sample_rate=int(os.getenv("QWEN_TTS_REALTIME_SAMPLE_RATE", "16000").strip() or "16000"),
         dashscope_tts_connect_timeout_seconds=int(
             os.getenv("QWEN_TTS_CONNECT_TIMEOUT_SECONDS", "15").strip() or "15"

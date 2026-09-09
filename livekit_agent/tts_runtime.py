@@ -68,6 +68,11 @@ class DashScopeRealtimeTTSClient:
         self._send_lock = asyncio.Lock()
         self._session_payload: dict[str, Any] = {}
 
+    @property
+    def selected_model(self) -> str:
+        """Return the configured DashScope model for observability and tests."""
+        return self.model
+
     def is_ready(self) -> bool:
         return self.websocket is not None and self.ready_event.is_set()
 
@@ -292,7 +297,8 @@ class LiveKitAudioReplyRuntime:
 
             await self.audio_source.wait_for_playout()
             logger.info(
-                "LiveKit TTS reply completed voice=%s elapsed_ms=%s",
+                "LiveKit TTS reply completed provider=dashscope model=%s voice=%s elapsed_ms=%s",
+                self.config.dashscope_tts_model,
                 self.config.dashscope_tts_voice,
                 int((time.perf_counter() - started_at) * 1000),
             )

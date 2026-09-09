@@ -97,7 +97,7 @@
 
 1. `DashScope chat/completions`
    - 用于 communication rewrite
-2. `DashScope realtime TTS`
+2. `DashScope realtime TTS`（默认 `qwen3-tts-flash-realtime`，可通过 `DASHSCOPE_TTS_MODEL` 切换到同一实时协议兼容的阿里云模型，例如 `cosyvoice-v3-flash`；`ALIYUN_TTS_MODEL` 为兼容别名）
    - worker 已会把 assistant reply 合成为 LiveKit 房间音轨
 3. `DashScope realtime ASR`
    - 代码路径已经接进 worker，并开始监听房间里的麦克风音频

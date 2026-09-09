@@ -126,6 +126,24 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.provider_tts_max_concurrency, 5)
         self.assertEqual(config.provider_tts_wait_timeout_seconds, 0.2)
 
+    def test_dashscope_tts_model_alias_can_select_another_aliyun_model(self) -> None:
+        previous = {key: os.environ.get(key) for key in ("DASHSCOPE_TTS_MODEL", "ALIYUN_TTS_MODEL", "QWEN_TTS_REALTIME_MODEL")}
+        try:
+            os.environ.update({
+                "LIVEKIT_URL": "ws://127.0.0.1:7880",
+                "LIVEKIT_API_KEY": "devkey",
+                "LIVEKIT_API_SECRET": "secret",
+                "DASHSCOPE_TTS_MODEL": "cosyvoice-v3-flash",
+            })
+            config = load_config()
+        finally:
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+        self.assertEqual(config.dashscope_tts_model, "cosyvoice-v3-flash")
+
 
 if __name__ == "__main__":
     unittest.main()
