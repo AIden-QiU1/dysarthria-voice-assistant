@@ -45,7 +45,7 @@ function queueItem(overrides: Partial<VoxFlameRecorderQueueItem>): VoxFlameRecor
   }
 }
 
-test('merge progress includes local pending durations and de-duplicates sentence ids', () => {
+test('merge progress keeps confirmed durations separate and de-duplicates sentence ids', () => {
   const result = mergeRecordingProgress({
     recordedSentenceIds: ['reading-test-segment-01'],
     recordedReadingSegmentIds: ['reading-test-segment-01'],
@@ -56,8 +56,9 @@ test('merge progress includes local pending durations and de-duplicates sentence
     totalDurationSeconds: 120,
   }, [queueItem({})])
 
-  assert.equal(result.todayDurationSeconds, 90)
-  assert.equal(result.totalDurationSeconds, 150)
+  assert.equal(result.todayDurationSeconds, 60)
+  assert.equal(result.totalDurationSeconds, 120)
+  assert.equal(result.pendingUploadCount, 1)
   assert.deepEqual(result.recordedSentenceIds, ['reading-test-segment-01'])
   assert.deepEqual(result.recordedReadingSegmentIds, ['reading-test-segment-01'])
   assert.deepEqual(result.recordedReadingRoundKeys, ['initial:reading-test-segment-01'])
@@ -89,4 +90,32 @@ test('recording progress accepts only the current account request generation', (
   assert.equal(isCurrentRecordingProgressRequest('user-a', 3, 'user-a', 3), true)
   assert.equal(isCurrentRecordingProgressRequest('user-a', 3, 'user-b', 3), false)
   assert.equal(isCurrentRecordingProgressRequest('user-a', 2, 'user-a', 3), false)
+})
+
+
+test('clearing an overlapping local retry never decreases confirmed duration', () => {
+  const cloud = {
+    recordedSentenceIds: ['same-sentence'], recordedReadingSegmentIds: [],
+    recordedReadingRoundKeys: [], readingArticleRoundIds: {}, lastRecordedExerciseIds: {},
+    todayDurationSeconds: 30, totalDurationSeconds: 30,
+  }
+  const before = mergeRecordingProgress(cloud, [queueItem({}), queueItem({})])
+  const after = mergeRecordingProgress(cloud, [])
+  assert.equal(before.pendingUploadCount, 1)
+  assert.equal(after.pendingUploadCount, 0)
+  assert.equal(before.totalDurationSeconds, 30)
+  assert.equal(after.totalDurationSeconds, before.totalDurationSeconds)
+  assert.equal(after.todayDurationSeconds, before.todayDurationSeconds)
+})
+
+test('two fresh captures of the same sentence are two pending recordings, not retries', () => {
+  const cloud = {
+    recordedSentenceIds: [], recordedReadingSegmentIds: [], recordedReadingRoundKeys: [],
+    readingArticleRoundIds: {}, lastRecordedExerciseIds: {},
+    todayDurationSeconds: 0, totalDurationSeconds: 0,
+  }
+  const result = mergeRecordingProgress(cloud, [queueItem({}), queueItem({ recordingId: 'recording-2' })])
+  assert.equal(result.pendingUploadCount, 2)
+  assert.equal(result.totalDurationSeconds, 0)
+  assert.equal(result.recordedSentenceIds.length, 1)
 })

@@ -16,6 +16,7 @@ export interface CloudRecordingProgress {
 }
 
 export interface RecordingProgress extends CloudRecordingProgress {
+  pendingUploadCount: number
   isLoading: boolean
   isRefreshing: boolean
   error: string | null
@@ -50,19 +51,6 @@ export function isCurrentRecordingProgressRequest(
   return requestUserId === currentUserId && requestGeneration === currentGeneration
 }
 
-function isToday(value: string): boolean {
-  const timestamp = Date.parse(value)
-  if (!Number.isFinite(timestamp)) {
-    return false
-  }
-
-  const date = new Date(timestamp)
-  const now = new Date()
-  return date.getFullYear() === now.getFullYear()
-    && date.getMonth() === now.getMonth()
-    && date.getDate() === now.getDate()
-}
-
 function uniqueStrings(values: Iterable<string>): string[] {
   return Array.from(new Set(Array.from(values).map((value) => value.trim()).filter(Boolean))).sort()
 }
@@ -71,15 +59,8 @@ function uniqueStrings(values: Iterable<string>): string[] {
 export function mergeRecordingProgress(
   cloud: CloudRecordingProgress,
   localQueueItems: VoxFlameRecorderQueueItem[],
-): CloudRecordingProgress {
-  const localDurationSeconds = localQueueItems.reduce(
-    (sum, item) => sum + Math.max(0, item.recording.audio.durationSeconds),
-    0,
-  )
-  const localTodayDurationSeconds = localQueueItems.reduce(
-    (sum, item) => sum + (isToday(item.createdAt) ? Math.max(0, item.recording.audio.durationSeconds) : 0),
-    0,
-  )
+): CloudRecordingProgress & { pendingUploadCount: number } {
+  const pendingUploadCount = new Set(localQueueItems.map((item) => item.recordingId)).size
   const localSentenceIds = localQueueItems
     .map((item) => item.sentenceId?.trim() ?? '')
     .filter(Boolean)
@@ -156,8 +137,9 @@ export function mergeRecordingProgress(
         Array.from(localResumeAnchors.entries()).map(([key, value]) => [key, value.exerciseId]),
       ),
     },
-    todayDurationSeconds: cloud.todayDurationSeconds + localTodayDurationSeconds,
-    totalDurationSeconds: cloud.totalDurationSeconds + localDurationSeconds,
+    todayDurationSeconds: cloud.todayDurationSeconds,
+    totalDurationSeconds: cloud.totalDurationSeconds,
+    pendingUploadCount,
   }
 }
 
@@ -336,6 +318,25 @@ export function useRecordingProgress(
     }
   }, [isAuthenticated, localQueueItems.length, refresh, userId])
 
+  // Other devices can upload while this page stays open. Refresh visible pages,
+  // and refresh immediately on return/reconnection without background polling.
+  useEffect(() => {
+    if (!isAuthenticated || !userId) return
+    const refreshVisible = () => {
+      if (document.visibilityState === 'visible') void refresh()
+    }
+    const interval = window.setInterval(refreshVisible, 30_000)
+    window.addEventListener('focus', refreshVisible)
+    window.addEventListener('online', refreshVisible)
+    document.addEventListener('visibilitychange', refreshVisible)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', refreshVisible)
+      window.removeEventListener('online', refreshVisible)
+      document.removeEventListener('visibilitychange', refreshVisible)
+    }
+  }, [isAuthenticated, refresh, userId])
+
   useEffect(() => () => {
     requestGenerationRef.current += 1
     activeRequestRef.current?.controller.abort()
@@ -345,8 +346,10 @@ export function useRecordingProgress(
   const cloud = cloudState.userId === userId ? cloudState.progress : EMPTY_PROGRESS
 
   const merged = useMemo(
-    () => mergeRecordingProgress(cloud, localQueueItems),
-    [cloud, localQueueItems],
+    () => mergeRecordingProgress(cloud, isAuthenticated
+      ? localQueueItems.filter((item) => item.contributorId === userId)
+      : []),
+    [cloud, isAuthenticated, localQueueItems, userId],
   )
 
   return {

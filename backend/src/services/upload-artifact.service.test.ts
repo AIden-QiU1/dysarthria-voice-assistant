@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   buildRecordingManifestEntry,
+  normalizeRecordingProgressSnapshot,
   classifyManifestRecordingState,
   executeRecoverableDiscard,
   removeManifestRecordingLines,
@@ -458,4 +459,19 @@ test('discard removes the contribution last after external cleanup completes', a
     removedManifestEntry: true,
     removedTranscriptEntry: true,
   })
+})
+
+
+test('progress rejects legacy/deletable totals instead of pretending they are durable', () => {
+  assert.equal(normalizeRecordingProgressSnapshot({ totalDurationSeconds: 120 }), null)
+  assert.equal(normalizeRecordingProgressSnapshot(null), null)
+  assert.equal(normalizeRecordingProgressSnapshot({ durationAccounting: 'durable_v1' }), null)
+  assert.equal(normalizeRecordingProgressSnapshot({ durationAccounting: 'durable_v1', totalDurationSeconds: -1, todayDurationSeconds: 0 }), null)
+  const snapshot = normalizeRecordingProgressSnapshot({
+    durationAccounting: 'durable_v1', totalDurationSeconds: 120, todayDurationSeconds: 30,
+    recordedSentenceIds: ['s1'],
+  })
+  assert.equal(snapshot?.totalDurationSeconds, 120)
+  assert.equal(snapshot?.todayDurationSeconds, 30)
+  assert.deepEqual(snapshot?.recordedSentenceIds, ['s1'])
 })

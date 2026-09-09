@@ -656,6 +656,7 @@ export default function ContributePage() {
         <RecordingDurationSummary
           todayDurationSeconds={recordingProgress.todayDurationSeconds}
           totalDurationSeconds={recordingProgress.totalDurationSeconds}
+          pendingUploadCount={recordingProgress.pendingUploadCount}
           isLoading={recordingProgress.isLoading}
           error={recordingProgress.error}
         />
@@ -2405,6 +2406,7 @@ export function TrainingRecorderPage({
               compact
               todayDurationSeconds={recordingProgress.todayDurationSeconds}
               totalDurationSeconds={recordingProgress.totalDurationSeconds}
+              pendingUploadCount={recordingProgress.pendingUploadCount}
               isLoading={recordingProgress.isLoading}
               error={recordingProgress.error}
             />
@@ -2948,6 +2950,7 @@ export function TrainingRecorderPage({
           compact
           todayDurationSeconds={recordingProgress.todayDurationSeconds}
           totalDurationSeconds={recordingProgress.totalDurationSeconds}
+          pendingUploadCount={recordingProgress.pendingUploadCount}
           isLoading={recordingProgress.isLoading}
           error={recordingProgress.error}
         />

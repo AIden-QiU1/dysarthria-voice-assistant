@@ -161,15 +161,6 @@ interface UploadReceiptMetadata extends JsonRecord {
   synced_at?: string
 }
 
-interface RecordingProgressCacheEntry {
-  rows: RecordingProgressRow[]
-  refreshedAt: number
-}
-
-const RECORDING_PROGRESS_CACHE_TTL_MS = 30 * 60 * 1000
-const RECORDING_PROGRESS_CACHE_MAX_ACCOUNTS = 32
-const recordingProgressCache = new Map<string, RecordingProgressCacheEntry>()
-const recordingProgressLoads = new Map<string, Promise<RecordingProgressRow[]>>()
 const artifactOperationTails = new Map<string, Promise<void>>()
 
 /** Serialize one account's shared manifest/transcript mutations inside this backend process. */
@@ -295,43 +286,6 @@ function toTimestamp(value: unknown): number | null {
   return Number.isFinite(timestamp) ? timestamp : null
 }
 
-function storeRecordingProgressRows(
-  contributorId: string,
-  rows: RecordingProgressRow[],
-): RecordingProgressRow[] {
-  recordingProgressCache.delete(contributorId)
-  recordingProgressCache.set(contributorId, {
-    rows,
-    refreshedAt: Date.now(),
-  })
-
-  while (recordingProgressCache.size > RECORDING_PROGRESS_CACHE_MAX_ACCOUNTS) {
-    const oldestContributorId = recordingProgressCache.keys().next().value
-    if (typeof oldestContributorId !== 'string') {
-      break
-    }
-    recordingProgressCache.delete(oldestContributorId)
-  }
-
-  return rows
-}
-
-function appendRecordingProgressRow(
-  contributorId: string,
-  row: RecordingProgressRow,
-): void {
-  const cached = recordingProgressCache.get(contributorId)
-  if (!cached) {
-    return
-  }
-
-  storeRecordingProgressRows(contributorId, [...cached.rows, row])
-}
-
-function invalidateRecordingProgress(contributorId: string): void {
-  recordingProgressCache.delete(contributorId)
-}
-
 function readStringRecord(value: unknown): Record<string, string> {
   if (!isRecord(value)) {
     return {}
@@ -343,8 +297,12 @@ function readStringRecord(value: unknown): Record<string, string> {
   )
 }
 
-function normalizeRecordingProgressSnapshot(value: unknown): RecordingProgressSnapshot | null {
-  if (!isRecord(value)) {
+export function normalizeRecordingProgressSnapshot(value: unknown): RecordingProgressSnapshot | null {
+  if (!isRecord(value) || value.durationAccounting !== 'durable_v1'
+    || typeof value.todayDurationSeconds !== 'number' || !Number.isFinite(value.todayDurationSeconds)
+    || value.todayDurationSeconds < 0
+    || typeof value.totalDurationSeconds !== 'number' || !Number.isFinite(value.totalDurationSeconds)
+    || value.totalDurationSeconds < 0) {
     return null
   }
 
@@ -847,6 +805,8 @@ async function updateContributionMetadata(
     .from('voice_contributions')
     .update({ metadata })
     .eq('id', contributionId)
+    .select('id')
+    .single()
 
   if (error) {
     throw new Error(error.message)
@@ -1055,120 +1015,19 @@ async function deleteContribution(contributorId: string, contributionId: string)
 }
 
 export class UploadArtifactService {
-  private async loadRecordingProgressRows(contributorId: string): Promise<RecordingProgressRow[]> {
-    const cached = recordingProgressCache.get(contributorId)
-    if (cached && Date.now() - cached.refreshedAt < RECORDING_PROGRESS_CACHE_TTL_MS) {
-      recordingProgressCache.delete(contributorId)
-      recordingProgressCache.set(contributorId, cached)
-      return cached.rows
-    }
-
-    const existingLoad = recordingProgressLoads.get(contributorId)
-    if (existingLoad) {
-      return existingLoad
-    }
-
-    const load = (async () => {
-      const rows: RecordingProgressRow[] = []
-      const pageSize = 1000
-      let from = 0
-
-      while (true) {
-        const { data, error } = await supabase!
-          .from('voice_contributions')
-          .select(`
-            sentence_id,
-            duration_seconds,
-            created_at,
-            reading_segment_id:metadata->>reading_segment_id,
-            reading_round_id:metadata->>reading_round_id,
-            reading_article_id:metadata->>reading_article_id,
-            prepared_expression_id:metadata->>prepared_expression_id,
-            exercise_category:metadata->>exercise_category
-          `)
-          .eq('contributor_id', contributorId)
-          .order('created_at', { ascending: true })
-          .range(from, from + pageSize - 1)
-
-        if (error) {
-          throw new Error(error.message)
-        }
-
-        const page = (Array.isArray(data) ? data : []).map((row) => ({
-          sentence_id: typeof row.sentence_id === 'string' ? row.sentence_id : null,
-          duration_seconds: typeof row.duration_seconds === 'number' ? row.duration_seconds : null,
-          created_at: typeof row.created_at === 'string' ? row.created_at : null,
-          metadata: {
-            reading_segment_id: typeof row.reading_segment_id === 'string' ? row.reading_segment_id : undefined,
-            reading_round_id: typeof row.reading_round_id === 'string' ? row.reading_round_id : undefined,
-            reading_article_id: typeof row.reading_article_id === 'string' ? row.reading_article_id : undefined,
-            prepared_expression_id: typeof row.prepared_expression_id === 'string' ? row.prepared_expression_id : undefined,
-            exercise_category: typeof row.exercise_category === 'string' ? row.exercise_category : undefined,
-          },
-        })) satisfies RecordingProgressRow[]
-        rows.push(...page)
-        if (page.length < pageSize) {
-          break
-        }
-        from += pageSize
-      }
-
-      return storeRecordingProgressRows(contributorId, rows)
-    })().finally(() => {
-      recordingProgressLoads.delete(contributorId)
-    })
-
-    recordingProgressLoads.set(contributorId, load)
-    return load
-  }
-
   async getRecordingProgress(
     contributorId: string,
     timezoneOffsetMinutes: number,
   ): Promise<RecordingProgressSnapshot> {
-    if (!supabase) {
-      return summarizeRecordingProgress([], timezoneOffsetMinutes)
-    }
-
-    const { data: aggregated, error: aggregateError } = await supabase.rpc(
-      'get_recording_progress',
-      {
-        p_contributor_id: contributorId,
-        p_timezone_offset_minutes: timezoneOffsetMinutes,
-      },
-    )
-    if (!aggregateError) {
-      const normalized = normalizeRecordingProgressSnapshot(aggregated)
-      if (normalized) {
-        return normalized
-      }
-    } else if (!aggregateError.message.includes('get_recording_progress')) {
-      throw new Error(aggregateError.message)
-    }
-
-    // Compatibility fallback for a rolling deploy before the RPC migration lands.
-    const rows = await this.loadRecordingProgressRows(contributorId)
-    const snapshot = summarizeRecordingProgress(rows, timezoneOffsetMinutes)
-    const { data: readingProgressData, error: readingProgressError } = await supabase
-      .from('reading_article_progress')
-      .select('article_id, current_round')
-      .eq('contributor_id', contributorId)
-
-    if (readingProgressError) {
-      throw new Error(readingProgressError.message)
-    }
-
-    snapshot.readingArticleRoundIds = Object.fromEntries(
-      (Array.isArray(readingProgressData) ? readingProgressData : [])
-        .flatMap((row) => (
-          typeof row.article_id === 'string'
-          && typeof row.current_round === 'number'
-          && Number.isInteger(row.current_round)
-          && row.current_round > 0
-            ? [[row.article_id, `round-${row.current_round}`] as const]
-            : []
-        )),
-    )
+    if (!supabase) throw new Error('recording_progress_storage_unavailable')
+    const { data, error } = await supabase.rpc('get_recording_progress', {
+      p_contributor_id: contributorId,
+      p_timezone_offset_minutes: timezoneOffsetMinutes,
+    })
+    if (error) throw new Error('recording_progress_storage_unavailable')
+    const snapshot = normalizeRecordingProgressSnapshot(data)
+    // Never silently fall back to a sum of deletable contribution rows.
+    if (!snapshot) throw new Error('recording_duration_migration_required')
     return snapshot
   }
 
@@ -1249,21 +1108,17 @@ export class UploadArtifactService {
     let existing: ContributionRecord | null = null
     let reusedContribution = false
 
-    try {
-      existing = await findExistingContribution(payload.contributorId, payload.audioPath)
-      reusedContribution = Boolean(existing)
-
-      if (!existing) {
-        existing = await upsertContributionSkeleton({
-          ...payload,
-          metadata: sanitizedMetadata,
-        })
-      }
-    } catch (error) {
-      console.warn(
-        `[UploadArtifactService] contribution persistence skipped for ${payload.audioPath}: ${toErrorMessage(error)}`,
-      )
+    if (!supabase) throw new Error('recording_progress_storage_unavailable')
+    // Reject an incomplete rollout before issuing an upload success receipt.
+    const { error: ledgerError } = await supabase.from('recording_duration_totals')
+      .select('contributor_id').eq('contributor_id', payload.contributorId).limit(1)
+    if (ledgerError) throw new Error('recording_duration_migration_required')
+    existing = await findExistingContribution(payload.contributorId, payload.audioPath)
+    reusedContribution = Boolean(existing)
+    if (!existing) {
+      existing = await upsertContributionSkeleton({ ...payload, metadata: sanitizedMetadata })
     }
+    if (!existing?.id) throw new Error('recording_contribution_persistence_failed')
 
     const currentMetadata = existing?.metadata ?? {}
     const mergedMetadata = sanitizeUploadMetadata({
@@ -1341,24 +1196,11 @@ export class UploadArtifactService {
           true,
         )
 
-      try {
-        await updateContributionMetadata(existing.id, {
-          ...mergedMetadata,
-          upload_receipt: nextReceipt,
-        })
-      } catch (error) {
-        console.warn(
-          `[UploadArtifactService] upload receipt update skipped for ${payload.audioPath}: ${toErrorMessage(error)}`,
-        )
-      }
-    }
-
-    if (!reusedContribution && existing?.id) {
-      appendRecordingProgressRow(payload.contributorId, {
-        sentence_id: payload.sentenceId ?? null,
-        duration_seconds: typeof payload.duration === 'number' ? payload.duration : null,
-        created_at: new Date().toISOString(),
-        metadata: sanitizedMetadata,
+      // The DB confirmation trigger credits duration atomically with this receipt.
+      // A failure must reach the caller so Web/Mobile retain their retry queue.
+      await updateContributionMetadata(existing.id, {
+        ...mergedMetadata,
+        upload_receipt: nextReceipt,
       })
     }
 
@@ -1414,9 +1256,6 @@ export class UploadArtifactService {
           : false
       ),
     })
-    if (removed.removedContribution) {
-      invalidateRecordingProgress(payload.contributorId)
-    }
 
     console.log(
       `[Upload] Discard timing totalMs=${Date.now() - discardStartedAt} `
