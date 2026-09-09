@@ -93,15 +93,6 @@ Frontend (3000) → Backend (3001/api/rtc/*) → LiveKit server + livekit_agent
 GET /api/memory/search?user_id=xxx&query=用户偏好&limit=10
 ```
 
-### Agent Compat API
-
-| 端点 | 方法 | 说明 | 认证 |
-|------|------|------|------|
-| `/api/agent/session/log` | POST | compat-only，现仅返回迁移指引 | ✅ |
-| `/api/agent/session/history/:userId` | GET | compat-only，现仅返回迁移指引 | ✅ |
-| `/api/agent/tool/log` | POST | compat-only，现仅返回迁移指引 | ✅ |
-| `/api/agent/tool/execute` | POST | compat-only，现仅返回迁移指引 | ✅ |
-
 ### 常用短语 API
 
 | 端点 | 方法 | 说明 | 认证 |
@@ -139,7 +130,7 @@ QDRANT_URL=http://qdrant:6333  # Phase 3
 - 新的 durable user state 默认应落到 `workspace owner`：
   - 读：`/api/memory/workspace/:userId`
   - 写：`/api/memory/workspace/:userId/preferences`
-- 旧的 `/api/agent/profile/:userId` 与 `/api/agent/hotwords/:userId` 已从服务中移除；若仍有外部调用，应改到 `workspace owner` 或 `memory profile`。
+- 旧的 `/api/session/*` 与 `/api/agent/*` 兼容接口已从服务中移除，不再返回迁移型 501 响应。运行时会话统一使用 `/api/rtc/session/*`，durable user state 统一使用 `workspace owner` 或 `memory profile`。
 
 ## 相关文档
 

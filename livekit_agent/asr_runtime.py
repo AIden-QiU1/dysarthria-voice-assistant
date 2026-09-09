@@ -16,6 +16,7 @@ from enum import Enum, auto
 from typing import Any, Protocol
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from capacity import ProcessSlotPool, ProviderCapacityLease, build_provider_pool
 from config import LiveKitAgentConfig
 from session_context import VoxFlameSessionContext
 
@@ -80,32 +81,17 @@ def build_asr_session_payload(config: LiveKitAgentConfig) -> dict[str, Any]:
 
 
 def get_authenticated_user_id(ctx: VoxFlameSessionContext) -> str | None:
+    """Read identity only from Backend-created Agent dispatch metadata."""
     payload_value = ctx.dispatch_payload.get("authenticated_user_id")
     if isinstance(payload_value, str) and payload_value.strip():
         return payload_value.strip()
-
-    payload_value = ctx.participant_payload.get("authenticated_user_id")
-    if isinstance(payload_value, str) and payload_value.strip():
-        return payload_value.strip()
-
-    attribute_value = ctx.raw_attributes.get("vox.authenticated_user_id")
-    if isinstance(attribute_value, str) and attribute_value.strip():
-        return attribute_value.strip()
-
     return None
 
 
 def get_asr_account_id(ctx: VoxFlameSessionContext) -> str | None:
-    for payload in (ctx.dispatch_payload, ctx.participant_payload):
-        value = payload.get("asr_account_id")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-
-    attribute_value = ctx.raw_attributes.get("vox.asr_account_id")
-    if isinstance(attribute_value, str) and attribute_value.strip():
-        return attribute_value.strip()
-
-    return get_authenticated_user_id(ctx)
+    """Read the model routing key only from Backend-created Agent dispatch metadata."""
+    value = ctx.dispatch_payload.get("asr_account_id")
+    return value.strip() if isinstance(value, str) and value.strip() else None
 
 
 def should_use_qwen_http_asr(config: LiveKitAgentConfig, ctx: VoxFlameSessionContext) -> bool:
@@ -298,6 +284,7 @@ class QwenRealtimeASRClient:
     api_key: str
     connect_timeout_seconds: int
     event_handler: ServerEventHandler
+    capacity_pool: ProcessSlotPool | None = None
 
     websocket: Any = None
     receive_task: asyncio.Task[None] | None = None
@@ -305,6 +292,7 @@ class QwenRealtimeASRClient:
     _connect_lock: asyncio.Lock = asyncio.Lock()
     _send_lock: asyncio.Lock = asyncio.Lock()
     _session_payload: dict[str, Any] | None = None
+    _capacity_lease: ProviderCapacityLease | None = None
 
     def __post_init__(self) -> None:
         self.url = with_model_query(self.url, self.model)
@@ -358,18 +346,24 @@ class QwenRealtimeASRClient:
 
             import websockets
 
-            self.websocket = await websockets.connect(
-                self.url,
-                additional_headers=[("Authorization", f"Bearer {self.api_key}")],
-                max_size=16 * 1024 * 1024,
-                ping_interval=20,
-                ping_timeout=20,
-                close_timeout=5,
-                open_timeout=self.connect_timeout_seconds,
-            )
-            self.receive_task = asyncio.create_task(self._receive_loop())
-            await self._send_json({"type": "session.update", "session": self._session_payload})
-            await asyncio.wait_for(self.ready_event.wait(), timeout=self.connect_timeout_seconds)
+            try:
+                if self.capacity_pool is not None:
+                    self._capacity_lease = await self.capacity_pool.acquire()
+                self.websocket = await websockets.connect(
+                    self.url,
+                    additional_headers=[("Authorization", f"Bearer {self.api_key}")],
+                    max_size=16 * 1024 * 1024,
+                    ping_interval=20,
+                    ping_timeout=20,
+                    close_timeout=5,
+                    open_timeout=self.connect_timeout_seconds,
+                )
+                self.receive_task = asyncio.create_task(self._receive_loop())
+                await self._send_json({"type": "session.update", "session": self._session_payload})
+                await asyncio.wait_for(self.ready_event.wait(), timeout=self.connect_timeout_seconds)
+            except Exception:
+                await self._close_current_socket()
+                raise
 
     async def _close_current_socket(self) -> None:
         receive_task = self.receive_task
@@ -392,6 +386,13 @@ class QwenRealtimeASRClient:
                 await websocket.close()
             except Exception:
                 pass
+        self._release_capacity_lease()
+
+    def _release_capacity_lease(self) -> None:
+        lease = self._capacity_lease
+        self._capacity_lease = None
+        if lease is not None:
+            lease.release()
 
     async def _send_json(self, payload: dict[str, Any]) -> None:
         if self.websocket is None:
@@ -433,6 +434,7 @@ class QwenRealtimeASRClient:
             if websocket is self.websocket:
                 self.ready_event.clear()
                 self.websocket = None
+                self._release_capacity_lease()
 
 
 @dataclass
@@ -444,6 +446,7 @@ class QwenHttpASRClient:
     request_timeout_seconds: float
     event_handler: ServerEventHandler
     fallback_client: QwenRealtimeASRClient | None = None
+    capacity_pool: ProcessSlotPool | None = None
 
     _buffer: bytearray = field(default_factory=bytearray)
     _session_payload: dict[str, Any] | None = None
@@ -579,12 +582,21 @@ class QwenHttpASRClient:
         headers = {"X-Account-ID": self.account_id}
 
         client = self._get_http_client()
-        response = await client.post(
-            self.url,
-            headers=headers,
-            data=data,
-            files=files,
-        )
+        if self.capacity_pool is None:
+            response = await client.post(
+                self.url,
+                headers=headers,
+                data=data,
+                files=files,
+            )
+        else:
+            async with self.capacity_pool.lease():
+                response = await client.post(
+                    self.url,
+                    headers=headers,
+                    data=data,
+                    files=files,
+                )
 
         response.raise_for_status()
         content_type = response.headers.get("content-type", "")
@@ -637,6 +649,8 @@ class LiveKitASRRuntime:
     on_speech_activity: SpeechActivityHandler | None = None
     on_audio_telemetry: AudioTelemetryHandler | None = None
     client: ASRClient | None = None
+    capacity_pool: ProcessSlotPool | None = None
+    fallback_capacity_pool: ProcessSlotPool | None = None
     _stream_task: asyncio.Task[None] | None = None
     _started: bool = False
     _audio_frame_count: int = 0
@@ -665,6 +679,28 @@ class LiveKitASRRuntime:
     _asr_source: str = "dashscope_realtime_asr"
     _fallback_final_transcript_pending: bool = False
 
+    def _primary_capacity_pool(self) -> ProcessSlotPool:
+        if self.capacity_pool is None:
+            self.capacity_pool = build_provider_pool(
+                provider="asr",
+                slots=self.config.provider_asr_max_concurrency,
+                wait_timeout_seconds=self.config.provider_asr_wait_timeout_seconds,
+                lock_directory=self.config.provider_capacity_directory,
+            )
+        return self.capacity_pool
+
+    def _realtime_fallback_capacity_pool(self) -> ProcessSlotPool:
+        if self.fallback_capacity_pool is None:
+            self.fallback_capacity_pool = build_provider_pool(
+                provider="asr-fallback",
+                slots=self.config.provider_asr_fallback_max_concurrency,
+                wait_timeout_seconds=(
+                    self.config.provider_asr_fallback_wait_timeout_seconds
+                ),
+                lock_directory=self.config.provider_capacity_directory,
+            )
+        return self.fallback_capacity_pool
+
     async def start(self) -> None:
         if self._stream_task is not None:
             return
@@ -677,6 +713,7 @@ class LiveKitASRRuntime:
             return
 
         if self.client is None:
+            primary_capacity_pool = self._primary_capacity_pool()
             if use_http_asr:
                 account_id = get_asr_account_id(self.ctx)
                 if account_id is None:
@@ -689,6 +726,7 @@ class LiveKitASRRuntime:
                         api_key=self.config.dashscope_api_key,
                         connect_timeout_seconds=self.config.dashscope_asr_connect_timeout_seconds,
                         event_handler=self._handle_server_event,
+                        capacity_pool=self._realtime_fallback_capacity_pool(),
                     )
                 self.client = QwenHttpASRClient(
                     url=self.config.qwen_http_asr_url or "",
@@ -698,6 +736,7 @@ class LiveKitASRRuntime:
                     request_timeout_seconds=self.config.qwen_http_asr_timeout_seconds,
                     event_handler=self._handle_server_event,
                     fallback_client=fallback_client,
+                    capacity_pool=primary_capacity_pool,
                 )
                 self._asr_source = "qwen_http_asr"
             else:
@@ -707,6 +746,7 @@ class LiveKitASRRuntime:
                     api_key=self.config.dashscope_api_key or "",
                     connect_timeout_seconds=self.config.dashscope_asr_connect_timeout_seconds,
                     event_handler=self._handle_server_event,
+                    capacity_pool=primary_capacity_pool,
                 )
                 self._asr_source = "dashscope_realtime_asr"
 

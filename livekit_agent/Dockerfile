@@ -19,7 +19,7 @@ RUN if [ "$LIVEKIT_AGENT_BOOTSTRAP_DEPS" = "1" ]; then \
       pip install \
         --index-url "${LIVEKIT_AGENT_PIP_INDEX_URL}" \
         --extra-index-url "${LIVEKIT_AGENT_PIP_EXTRA_INDEX_URL}" \
-        "livekit-agents==1.5.1" \
+        "livekit-agents==1.7.1" \
         "python-dotenv>=1.0,<2.0" ; \
     fi
 

@@ -47,6 +47,15 @@ class LiveKitAgentConfig:
     dashscope_tts_connect_timeout_seconds: int
     dashscope_tts_request_timeout_seconds: float
     log_level: str
+    provider_capacity_directory: str = "/tmp/voxflame-provider-capacity"
+    provider_asr_max_concurrency: int = 4
+    provider_asr_wait_timeout_seconds: float = 0.25
+    provider_asr_fallback_max_concurrency: int = 4
+    provider_asr_fallback_wait_timeout_seconds: float = 0.25
+    provider_llm_max_concurrency: int = 8
+    provider_llm_wait_timeout_seconds: float = 0.25
+    provider_tts_max_concurrency: int = 3
+    provider_tts_wait_timeout_seconds: float = 3.0
 
 
 def should_bypass_proxy_for_livekit(livekit_url: str) -> bool:
@@ -118,7 +127,7 @@ def load_config() -> LiveKitAgentConfig:
         qwen_http_asr_language=os.getenv("QWEN_HTTP_ASR_LANGUAGE", "Chinese").strip()
         or "Chinese",
         qwen_http_asr_timeout_seconds=float(
-            os.getenv("QWEN_HTTP_ASR_TIMEOUT_SECONDS", "30").strip() or "30"
+            os.getenv("QWEN_HTTP_ASR_TIMEOUT_SECONDS", "5").strip() or "5"
         ),
         livekit_audio_apm_enabled=(
             os.getenv("LIVEKIT_AUDIO_APM_ENABLED", "1").strip().lower() not in {"0", "false", "no"}
@@ -155,10 +164,21 @@ def load_config() -> LiveKitAgentConfig:
             .strip()
         ),
         dashscope_tts_model=(
-            os.getenv("QWEN_TTS_REALTIME_MODEL", "qwen3-tts-flash-realtime").strip()
+            (
+                os.getenv("DASHSCOPE_TTS_MODEL")
+                or os.getenv("ALIYUN_TTS_MODEL")
+                or os.getenv("QWEN_TTS_REALTIME_MODEL")
+                or "qwen3-tts-flash-realtime"
+            ).strip()
             or "qwen3-tts-flash-realtime"
         ),
-        dashscope_tts_voice=os.getenv("QWEN_TTS_REALTIME_VOICE", "Cherry").strip() or "Cherry",
+        dashscope_tts_voice=(
+            os.getenv("DASHSCOPE_TTS_VOICE")
+            or os.getenv("ALIYUN_TTS_VOICE")
+            or os.getenv("QWEN_TTS_REALTIME_VOICE")
+            or "Cherry"
+        ).strip()
+        or "Cherry",
         dashscope_tts_sample_rate=int(os.getenv("QWEN_TTS_REALTIME_SAMPLE_RATE", "16000").strip() or "16000"),
         dashscope_tts_connect_timeout_seconds=int(
             os.getenv("QWEN_TTS_CONNECT_TIMEOUT_SECONDS", "15").strip() or "15"
@@ -167,4 +187,27 @@ def load_config() -> LiveKitAgentConfig:
             os.getenv("QWEN_TTS_REQUEST_TIMEOUT_SECONDS", "20").strip() or "20"
         ),
         log_level=os.getenv("LOG_LEVEL", "info").strip().lower() or "info",
+        provider_capacity_directory=(
+            os.getenv("VOXFLAME_PROVIDER_CAPACITY_DIRECTORY", "/tmp/voxflame-provider-capacity").strip()
+            or "/tmp/voxflame-provider-capacity"
+        ),
+        provider_asr_max_concurrency=int(
+            os.getenv("VOXFLAME_PROVIDER_ASR_MAX_CONCURRENCY", "4").strip() or "4"
+        ),
+        provider_asr_wait_timeout_seconds=float(os.getenv("VOXFLAME_PROVIDER_ASR_WAIT_TIMEOUT_SECONDS", "0.25").strip() or "0.25"),
+        provider_asr_fallback_max_concurrency=int(
+            os.getenv("VOXFLAME_PROVIDER_ASR_FALLBACK_MAX_CONCURRENCY", "4").strip() or "4"
+        ),
+        provider_asr_fallback_wait_timeout_seconds=float(
+            os.getenv("VOXFLAME_PROVIDER_ASR_FALLBACK_WAIT_TIMEOUT_SECONDS", "0.25").strip()
+            or "0.25"
+        ),
+        provider_llm_max_concurrency=int(
+            os.getenv("VOXFLAME_PROVIDER_LLM_MAX_CONCURRENCY", "8").strip() or "8"
+        ),
+        provider_llm_wait_timeout_seconds=float(os.getenv("VOXFLAME_PROVIDER_LLM_WAIT_TIMEOUT_SECONDS", "0.25").strip() or "0.25"),
+        provider_tts_max_concurrency=int(
+            os.getenv("VOXFLAME_PROVIDER_TTS_MAX_CONCURRENCY", "3").strip() or "3"
+        ),
+        provider_tts_wait_timeout_seconds=float(os.getenv("VOXFLAME_PROVIDER_TTS_WAIT_TIMEOUT_SECONDS", "3").strip() or "3"),
     )

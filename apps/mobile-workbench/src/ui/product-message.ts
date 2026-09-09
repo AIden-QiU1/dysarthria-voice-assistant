@@ -1,6 +1,7 @@
 export type MobileProductMessageContext =
   | 'generic'
   | 'auth'
+  | 'register'
   | 'phone'
   | 'microphone'
   | 'realtime'
@@ -11,6 +12,7 @@ export type MobileProductMessageContext =
 const FALLBACK_MESSAGES: Record<MobileProductMessageContext, string> = {
   generic: '操作失败，请稍后再试。',
   auth: '登录失败，请重试。',
+  register: '注册失败，请重试。',
   phone: '短信暂不可用，请稍后再试。',
   microphone: '麦克风不可用，请检查权限。',
   realtime: '连接失败，请重试。',

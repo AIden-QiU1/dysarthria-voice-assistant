@@ -73,26 +73,37 @@ case "$MODE" in
     wait_for_health "$MODE"
     exit 0
     ;;
+  collection)
+    echo "[voxflame] Building and recreating the white-label frontend and Caddy only."
+    compose_cmd --profile collection build frontend-collection
+    compose_cmd --profile collection --profile https up -d --no-deps frontend-collection caddy
+    wait_for_health frontend-collection
+    exit 0
+    ;;
   core)
     ;;
   *)
-    echo "Usage: $0 [core|backend|frontend|env-backend]" >&2
+    echo "Usage: $0 [core|backend|frontend|collection|env-backend]" >&2
     exit 1
     ;;
 esac
 
 LIVEKIT_AGENT_IMAGE="${LIVEKIT_AGENT_IMAGE:-voxflame-agent-livekit-agent:latest}"
 LIVEKIT_AGENT_BASE_IMAGE="${LIVEKIT_AGENT_BASE_IMAGE:-docker.m.daocloud.io/library/python:3.10-slim}"
+REQUIRED_LIVEKIT_AGENTS_VERSION="$(sed -n 's/.*livekit-agents==\([0-9][0-9.]*\).*/\1/p' "$ROOT_DIR/livekit_agent/Dockerfile" | head -n 1)"
 FAST_BOOTSTRAP_DEPS=1
 FAST_BASE_IMAGE="$LIVEKIT_AGENT_BASE_IMAGE"
 FAST_DOCKERFILE="${LIVEKIT_AGENT_DOCKERFILE:-Dockerfile}"
 
-if [[ -x "$ROOT_DIR/livekit_agent/.venv/bin/python" ]] && \
-   "$ROOT_DIR/livekit_agent/.venv/bin/python" -c "import livekit; import livekit.agents; import websockets; import dotenv" >/dev/null 2>&1; then
+if [[ -n "$REQUIRED_LIVEKIT_AGENTS_VERSION" ]] && \
+   [[ -x "$ROOT_DIR/livekit_agent/.venv/bin/python" ]] && \
+   "$ROOT_DIR/livekit_agent/.venv/bin/python" -c "from importlib.metadata import version; import websockets, dotenv; assert version('livekit-agents') == '$REQUIRED_LIVEKIT_AGENTS_VERSION'" >/dev/null 2>&1; then
   FAST_DOCKERFILE="Dockerfile.localvenv"
   FAST_BOOTSTRAP_DEPS=0
   echo "[voxflame] Reusing local livekit_agent/.venv as dependency layer via $FAST_DOCKERFILE"
-elif docker_cmd image inspect "$LIVEKIT_AGENT_IMAGE" >/dev/null 2>&1; then
+elif [[ -n "$REQUIRED_LIVEKIT_AGENTS_VERSION" ]] && \
+     docker_cmd image inspect "$LIVEKIT_AGENT_IMAGE" >/dev/null 2>&1 && \
+     docker_cmd run --rm --entrypoint python "$LIVEKIT_AGENT_IMAGE" -c "from importlib.metadata import version; assert version('livekit-agents') == '$REQUIRED_LIVEKIT_AGENTS_VERSION'" >/dev/null 2>&1; then
   FAST_BOOTSTRAP_DEPS=0
   FAST_BASE_IMAGE="$LIVEKIT_AGENT_IMAGE"
   echo "[voxflame] Reusing local livekit-agent image as dependency base: $FAST_BASE_IMAGE"

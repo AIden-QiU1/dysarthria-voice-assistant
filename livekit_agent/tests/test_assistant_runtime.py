@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from assistant_runtime import (
     normalize_history_correction_text,
     sanitize_correction_reply,
 )
+from capacity import ProcessSlotPool
 from config import LiveKitAgentConfig
 from session_context import VoxFlameSessionContext
 from session_userdata import build_session_userdata
@@ -219,6 +221,36 @@ class TestAssistantRuntime(unittest.TestCase):
 
         self.assertEqual(exc.exception.code, "correction_timeout")
         self.assertIn("超时", exc.exception.user_message)
+
+    def test_generate_reply_reports_capacity_without_calling_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as lock_directory:
+            pool = ProcessSlotPool(
+                provider="llm",
+                slots=1,
+                wait_timeout_seconds=0,
+                lock_directory=lock_directory,
+            )
+            fake_client = FakeDashScopeClient("不应调用")
+            runtime = CommunicationAssistantRuntime(
+                config=create_config(),
+                ctx=create_context(),
+                userdata=build_session_userdata(create_context()),
+                client=fake_client,
+                capacity_pool=pool,
+            )
+
+            async def run() -> None:
+                held_lease = await pool.acquire()
+                try:
+                    with self.assertRaises(AssistantReplyGenerationError) as exc:
+                        await runtime.generate_reply("请帮我叫医生")
+                    self.assertEqual(exc.exception.code, "correction_capacity")
+                    self.assertIn("使用人数较多", exc.exception.user_message)
+                finally:
+                    held_lease.release()
+
+            asyncio.run(run())
+            self.assertEqual(fake_client.requests, [])
 
     def test_generate_reply_falls_back_to_asr_in_caption_mode_when_dashscope_times_out(self) -> None:
         userdata = build_session_userdata(create_context())

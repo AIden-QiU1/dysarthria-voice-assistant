@@ -10,6 +10,11 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib import error, request
 
+from capacity import (
+    ProcessSlotPool,
+    ProviderCapacityExceeded,
+    build_provider_pool,
+)
 from config import LiveKitAgentConfig
 from session_context import VoxFlameSessionContext
 from session_userdata import VoxFlameSessionUserData
@@ -497,6 +502,12 @@ def _normalize_completion_result(
 
 def _classify_generation_failure(exc: Exception) -> AssistantReplyGenerationError:
     detail = str(exc).strip() or exc.__class__.__name__
+    if isinstance(exc, ProviderCapacityExceeded):
+        return AssistantReplyGenerationError(
+            "当前使用人数较多，请稍后再说一次。",
+            code="correction_capacity",
+            detail=detail,
+        )
     lowered = detail.lower()
     if "timed out" in lowered or "timeout" in lowered:
         return AssistantReplyGenerationError(
@@ -517,9 +528,17 @@ class CommunicationAssistantRuntime:
     ctx: VoxFlameSessionContext
     userdata: VoxFlameSessionUserData
     client: DashScopeChatClient | Any | None = None
+    capacity_pool: ProcessSlotPool | None = None
     history: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        if self.capacity_pool is None:
+            self.capacity_pool = build_provider_pool(
+                provider="llm",
+                slots=self.config.provider_llm_max_concurrency,
+                wait_timeout_seconds=self.config.provider_llm_wait_timeout_seconds,
+                lock_directory=self.config.provider_capacity_directory,
+            )
         if self.client is None and self.config.dashscope_api_key:
             self.client = DashScopeChatClient(
                 api_key=self.config.dashscope_api_key,
@@ -592,10 +611,13 @@ class CommunicationAssistantRuntime:
         soft_target_ms = round(self.config.dashscope_reply_timeout_seconds * 1000)
 
         try:
-            if isinstance(self.client, DashScopeChatClient):
-                raw_result = await asyncio.to_thread(self.client.complete, messages)
-            else:
-                raw_result = self.client.complete(messages)
+            if self.capacity_pool is None:
+                raise RuntimeError("LLM capacity pool is not initialized")
+            async with self.capacity_pool.lease():
+                if isinstance(self.client, DashScopeChatClient):
+                    raw_result = await asyncio.to_thread(self.client.complete, messages)
+                else:
+                    raw_result = self.client.complete(messages)
             completion = _normalize_completion_result(raw_result)
             reply = completion.text.strip()
             if not reply:

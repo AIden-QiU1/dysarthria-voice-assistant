@@ -93,7 +93,6 @@ function parseSurface(value: unknown): RtcSurface | undefined {
     value === 'communication_workspace' ||
     value === 'training_workspace' ||
     value === 'memory_workspace' ||
-    value === 'pwa_quick_talk' ||
     value === 'mobile_workbench' ||
     value === 'desktop_companion'
     ? value

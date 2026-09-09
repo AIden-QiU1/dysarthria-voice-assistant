@@ -8,7 +8,7 @@ VoxFlame 是面向构音障碍沟通场景的主动沟通助手。当前目标�
 
 当前产品判断已经明确吸收“创始人即用户”的一手研究：真正决定成败的，不只是识别准确率，而是用户在面试、工作协作、医疗沟通、陌生人求助这些高压时刻，能不能不被打断、不被忽视、不被别人替他说话。
 
-继续开发默认以本 README、[产品 PRD](/home/ubuntu/VoxFlame-Agent/docs/VOXFLAME_PRODUCT_PRD_2026-03-24.md) 和 [当前任务状态](/home/ubuntu/VoxFlame-Agent/.tasks/current.md) 为现役入口。研究统一看 [VoxFlame Research](/home/ubuntu/VoxFlame-Agent/research/README.md)，会影响应用的结论统一进入 [研究到应用回流登记](/home/ubuntu/VoxFlame-Agent/research/APPLICATION_FEEDBACK_REGISTRY.md)；模型代码与原始实验记录由 [CLEAR-VOX-MODEL](/home/ubuntu/VoxFlame-Agent/references/clear-vox-model) submodule 承接。
+继续开发默认以本 README、[产品 PRD](/home/ubuntu/VoxFlame-Agent/research/product-engineering/VOXFLAME_PRODUCT_PRD_2026-03-24.md) 和 [当前任务状态](/home/ubuntu/VoxFlame-Agent/.tasks/current.md) 为现役入口。全部项目文档统一看 [VoxFlame Research](/home/ubuntu/VoxFlame-Agent/research/README.md)，会影响应用的研究结论统一进入 [研究到应用回流登记](/home/ubuntu/VoxFlame-Agent/research/APPLICATION_FEEDBACK_REGISTRY.md)；模型代码与原始实验记录由 [CLEAR-VOX-MODEL](/home/ubuntu/VoxFlame-Agent/references/clear-vox-model) submodule 承接。
 
 ## 开发标准
 
@@ -38,7 +38,7 @@ Frontend LiveKit RTC/Data
   -> DashScope / Qwen ASR / TTS / correction
 ```
 
-- `Frontend`：LiveKit RTC 音频、room data 文本/控制、沟通页与训练页；PWA 已恢复为正式能力，默认随前端容器开启。
+- `Frontend`：LiveKit RTC 音频、room data 文本/控制、沟通页与训练页；Web 直接打开即用，Android / iPhone 原生内测包统一从 `/download` 获取。
 - `Backend`：RTC session orchestration、memory API、phrases API、upload API。
 - `LiveKit Agent`：位于 [livekit_agent/](/home/ubuntu/VoxFlame-Agent/livekit_agent)；当前已承接沟通/训练的执行面主链。
 - 旧运行时 `websocket` 主链已经退役，不再作为兼容路径保留。
@@ -55,7 +55,7 @@ Frontend LiveKit RTC/Data
 
 - 沟通主链已经能用；沟通页首屏已经从 `chat-first` 收成 `starter kit + live session + expression kit drawer`，首页、练习页和沟通档案页的顶层信息也开始从“说明书式页面”收成“任务入口 + 资源入口 + 低压力提示”。
 - 训练数据入口这轮也开始扎实起来：前端已围绕 `recording envelope -> recorder queue -> upload receipt` 收口，后端 `/api/upload/complete` 已开始按 `audio_path` 复用已有 contribution / manifest，减少补传和重试时的重复写入。
-- 本地待同步录音现在不再只是“有个数量提示”，而是会带 `syncStatus / syncAttempts / lastAttemptAt / lastError` 显式展示，后续 PWA、Web 和 mobile workbench 可以围绕同一套 recorder queue contract 继续扩展。
+- 本地待同步录音现在不再只是“有个数量提示”，而是会带 `syncStatus / syncAttempts / lastAttemptAt / lastError` 显式展示；Web 和 mobile workbench 可以围绕同一套 recorder queue contract 继续扩展。
 - [useRtcAgentSession.ts](/home/ubuntu/VoxFlame-Agent/frontend/src/hooks/useRtcAgentSession.ts) 同时承担会话启动、RTM 事件路由、字幕聚合、voice profile 同步和本地 memory session 管理，已经逼近“第二控制面”。
 - 长期用户状态正在继续收口到前端 [memory-service.ts](/home/ubuntu/VoxFlame-Agent/frontend/src/lib/memory/memory-service.ts) 与后端 [supabase.service.ts](/home/ubuntu/VoxFlame-Agent/backend/src/services/supabase.service.ts) 共同维护的 `workspace snapshot / memory profile / expression kit` 读写链，不再继续向旧执行面分叉。
 - 记忆系统当前重点不是继续堆训练复盘，而是把“用户画像、常见场景、即将面对场景的准备、热词、发音规律、补救策略”压缩成可直接服务沟通与训练的 owner 数据。
@@ -68,16 +68,12 @@ Frontend LiveKit RTC/Data
    继续提升沟通页、训练页、记忆页的真实可用性和可验证性。
 2. `App / Mobile Workbench 接入`
    在复用 `workspace snapshot / recording envelope / upload receipt` 的前提下，推进完整移动端工作台和桌面 companion。
-   当前移动端 Phase 0 已落在 [apps/mobile-workbench](/home/ubuntu/VoxFlame-Agent/apps/mobile-workbench)，已接入 Supabase React Native auth adapter 与只读 `workspace snapshot`。App 不依赖 Web/Next.js 运行时，而是和 Web 作为两个 sibling client 共同依赖 backend-owned contracts；执行 RFC 见 [Mobile Workbench Phase 0 RFC](/home/ubuntu/VoxFlame-Agent/docs/VOXFLAME_MOBILE_WORKBENCH_PHASE0_RFC_2026-05-04.md)。
+   当前移动端已落在 [apps/mobile-workbench](/home/ubuntu/VoxFlame-Agent/apps/mobile-workbench)，App 不依赖 Web/Next.js 运行时，而是和 Web 作为两个 sibling client 共同依赖 backend-owned contracts；真机门见 [Mobile Workbench 真机验证手册](/home/ubuntu/VoxFlame-Agent/research/product-engineering/VOXFLAME_MOBILE_WORKBENCH_DEVICE_VERIFICATION_RUNBOOK_2026-05-05.md)。
 3. `硬件接入`
    先做 BLE / USB / 外接麦克风 / 一键控制桥，再决定是否走更重的硬件形态。
-   第一版硬件开发路线、购买清单、ESP32-S3 / BLE / I2S / LiveKit 边界见 [硬件桥接开发手册](docs/VOXFLAME_HARDWARE_BRIDGE_DEVELOPMENT_GUIDE_2026-05-05.md)。
+   第一版硬件开发路线、购买清单、ESP32-S3 / BLE / I2S / LiveKit 边界见 [硬件桥接开发手册](research/product-engineering/VOXFLAME_HARDWARE_BRIDGE_DEVELOPMENT_GUIDE_2026-05-05.md)。
 4. `自主语音 agent 架构`
    继续把 `livekit_agent` 演进成 provider-neutral、可解释、可验证的语音 runtime，而不是一上来整套重写。
-
-详细方向见：
-
-- [VoxFlame 开源协作方向（2026-04-21）](docs/VOXFLAME_OPEN_SOURCE_COLLABORATION_DIRECTION_2026-04-21.md)
 
 ## 快速开始
 
@@ -108,7 +104,7 @@ cp livekit_agent/.env.example livekit_agent/.env
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NEXT_PUBLIC_API_URL`：本地开发时使用 `http://localhost:3001`
 - `FRONTEND_NEXT_PUBLIC_API_URL`：Docker 部署时推荐固定为 `/api`
-- `VOXFLAME_ENABLE_PWA`：默认 `1`；如需排查 `localhost` 缓存 / service worker 干扰，可临时设为 `0`
+- Web 不再注册 service worker 或提供 PWA 安装入口；原生 App 下载统一走 `/download`
 
 ### 启动
 
@@ -152,7 +148,6 @@ VoxFlame-Agent/
 │   └── src/
 ├── livekit_agent/
 ├── scripts/
-├── docs/
 ├── research/
 ├── references/
 │   └── clear-vox-model/  # Git submodule
@@ -174,7 +169,7 @@ VoxFlame-Agent/
 - 当前任务：[.tasks/current.md](/home/ubuntu/VoxFlame-Agent/.tasks/current.md)
 - 项目摘要：[.claude-summary.md](/home/ubuntu/VoxFlame-Agent/.claude-summary.md)
 - 工程规范：[AGENTS.md](/home/ubuntu/VoxFlame-Agent/AGENTS.md)
-- 产品主文档：[docs/VOXFLAME_PRODUCT_PRD_2026-03-24.md](/home/ubuntu/VoxFlame-Agent/docs/VOXFLAME_PRODUCT_PRD_2026-03-24.md)
+- 产品主文档：[research/product-engineering/VOXFLAME_PRODUCT_PRD_2026-03-24.md](/home/ubuntu/VoxFlame-Agent/research/product-engineering/VOXFLAME_PRODUCT_PRD_2026-03-24.md)
 - 研究入口：[research/README.md](/home/ubuntu/VoxFlame-Agent/research/README.md)
 - 应用回流登记：[research/APPLICATION_FEEDBACK_REGISTRY.md](/home/ubuntu/VoxFlame-Agent/research/APPLICATION_FEEDBACK_REGISTRY.md)
 - 模型与实验上游：[references/clear-vox-model](/home/ubuntu/VoxFlame-Agent/references/clear-vox-model)
@@ -258,7 +253,7 @@ VoxFlame-Agent/
   https://theten.ai/docs/ten_framework/extension/
 
 - 本项目文档导航  
-  [docs/README.md](docs/README.md)
+  [research/README.md](research/README.md)
 
 ---
 

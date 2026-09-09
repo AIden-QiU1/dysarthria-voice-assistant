@@ -7,7 +7,7 @@
 - Next.js 14 App Router
 - React 18 + TypeScript + Tailwind CSS
 - LiveKit client
-- PWA（默认开启，可按环境显式关闭）
+- Web 网站（原生 Android / iPhone App 通过独立下载页提供）
 - Web Audio API
 
 ## 当前职责
@@ -16,7 +16,7 @@
 - 沟通页实时会话与 starter kit
 - 训练页 RTC 会话、录音资产与上传回执
 - 沟通档案页与共享 `workspace` 读模型
-- PWA 安装、离线与更新提示
+- 旧 Web App 运行时迁移清理
 
 ## 当前主链
 
@@ -141,12 +141,6 @@ app (路由/页面入口)
 sudo docker-compose up -d frontend
 ```
 
-如需排查本地浏览器缓存或 service worker 干扰，可临时关闭 PWA：
-
-```bash
-VOXFLAME_ENABLE_PWA=0 sudo docker-compose up -d --build frontend
-```
-
 ### 本地开发
 
 ```bash
@@ -224,7 +218,6 @@ recording envelope
 ```bash
 # .env.local
 NEXT_PUBLIC_API_URL=http://localhost:3001/api
-VOXFLAME_ENABLE_PWA=1
 ```
 
 ## 开发经验
@@ -247,23 +240,11 @@ sudo docker-compose build frontend --no-cache
 sudo docker-compose up -d frontend
 ```
 
-### PWA 边界
+### Web 与原生 App 边界
 
-PWA 现在适合承担：
+当前 Web 负责直接打开即用的沟通、练习和准备工作；Android / iPhone 原生内测包统一从 `/download` 获取。Web 不再提供安装到桌面、离线缓存或网页版本更新提示，避免与原生 App 入口混淆。
 
-- 安装到桌面 / 主屏幕
-- 静态资源缓存
-- 安装感和较轻的离线体验
-- 与 recorder queue 结合，降低“临时断网就丢数据”的风险
-
-PWA 还不能替代未来原生 App / mobile workbench 的部分：
-
-- 更稳定的后台音频与长时录制
-- 更强的系统级权限与设备集成
-- 更完整的通知、后台同步和硬件协作
-- 更强的移动端 / 桌面端原生分发与系统入口
-
-当前建议是：先把 PWA 当作近端产品面，把“能安装、能录、能断网兜底、能持续验证”做扎实；原生 App 不需要立刻抢 P0，但也没有被完全替代。
+历史版本注册过 Web App 的浏览器，首次打开新版 Web 会自动注销旧 service worker 并删除旧缓存。录音待同步队列保存在 IndexedDB，不受这次清理影响。
 
 ## 相关文档
 

@@ -124,7 +124,7 @@ npm run smoke:device-env
 
 For a physical phone, `EXPO_PUBLIC_API_BASE_URL` should usually point at your computer's LAN address, for example `http://<lan-ip>:3001/api`, not `http://127.0.0.1:3001/api`.
 
-See [Mobile Workbench Device Verification Runbook](../../docs/VOXFLAME_MOBILE_WORKBENCH_DEVICE_VERIFICATION_RUNBOOK_2026-05-05.md).
+See [Mobile Workbench Device Verification Runbook](../../research/product-engineering/VOXFLAME_MOBILE_WORKBENCH_DEVICE_VERIFICATION_RUNBOOK_2026-05-05.md).
 
 ## Real Account Smoke
 
@@ -233,6 +233,26 @@ The permanent URL is sent with `Cache-Control: no-store`, and each successful re
 The app environment is public-client only. Before building for a real phone, set `EXPO_PUBLIC_API_BASE_URL` to the computer or server address the phone can reach, such as `http://192.168.1.23:3001/api`. Do not use `127.0.0.1` for a physical phone.
 
 Remote EAS builds do not automatically receive your uncommitted local `.env`, so configure the `EXPO_PUBLIC_*` values in EAS before cloud builds. These values are public client configuration; never add service role keys, LiveKit API secrets, DashScope keys, or OSS secrets.
+
+### 独立品牌构建
+
+第二品牌与主 App 共用业务代码和 Backend/Auth/OSS 契约，但必须作为独立安装包发布。构建前设置以下公开品牌值和发布标识：
+
+```bash
+VOXFLAME_APP_FLAVOR=collection \
+EXPO_PUBLIC_APP_BRAND_NAME=<第二品牌名称> \
+EXPO_PUBLIC_APP_BRAND_ACCENT=<#RRGGBB> \
+VOXFLAME_COLLECTION_APP_ICON=<图标路径> \
+VOXFLAME_COLLECTION_ANDROID_ADAPTIVE_ICON=<Android 前景图路径> \
+VOXFLAME_COLLECTION_APP_SLUG=<独立 Expo slug> \
+VOXFLAME_COLLECTION_APP_SCHEME=<独立 URL scheme> \
+VOXFLAME_COLLECTION_ANDROID_PACKAGE=<独立 Android package> \
+VOXFLAME_COLLECTION_IOS_BUNDLE_IDENTIFIER=<独立 iOS Bundle ID> \
+VOXFLAME_COLLECTION_EAS_PROJECT_ID=<独立 EAS project ID> \
+npx expo config --type public
+```
+
+`app.config.js` 会在缺少任一独立标识时直接失败，防止误用 VoxFlame 名称、图标、包名、签名项目或发布渠道。第二品牌网站未配置自己的 App 下载地址时只显示“准备中”，不会分发现有 VoxFlame APK。
 
 This server currently has stale `HTTP_PROXY / HTTPS_PROXY` values and an unsafe `NODE_TLS_REJECT_UNAUTHORIZED` override. The repository's `eas:*` and `build:*` scripts unset them automatically. If you run EAS manually, prefix the command with `env -u HTTP_PROXY -u HTTPS_PROXY -u NODE_TLS_REJECT_UNAUTHORIZED`.
 

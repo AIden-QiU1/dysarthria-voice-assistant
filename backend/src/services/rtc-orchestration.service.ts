@@ -18,7 +18,6 @@ export type RtcSurface =
   | 'communication_workspace'
   | 'training_workspace'
   | 'memory_workspace'
-  | 'pwa_quick_talk'
   | 'mobile_workbench'
   | 'desktop_companion'
 export type RtcSessionStrategy = 'heavy_realtime' | 'light_voice'
@@ -176,7 +175,6 @@ const SUPPORTED_SURFACES: RtcSurface[] = [
   'communication_workspace',
   'training_workspace',
   'memory_workspace',
-  'pwa_quick_talk',
   'mobile_workbench',
   'desktop_companion',
 ]
@@ -672,7 +670,7 @@ function resolveSurface(
   }
 
   if (mode === 'quick_talk') {
-    return 'pwa_quick_talk'
+    return 'home_main'
   }
 
   return 'communication_workspace'

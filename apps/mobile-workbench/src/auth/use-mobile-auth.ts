@@ -19,6 +19,8 @@ import {
 } from './mobile-auth-hint-storage'
 import { createMobileSupabaseClient } from './mobile-supabase-client'
 import { toMobileProductMessage } from '../ui/product-message'
+import type { MobileRegistrationProfileMetadata } from './registration-profile'
+import { buildMobileLegalConsentMetadata } from './legal-consent'
 
 export type MobileAuthStatus =
   | 'config_missing'
@@ -26,6 +28,7 @@ export type MobileAuthStatus =
   | 'signed_out'
   | 'signed_in'
   | 'signing_in'
+  | 'signing_up'
   | 'sending_code'
   | 'verifying_code'
   | 'binding_phone'
@@ -43,9 +46,15 @@ export interface MobileAuthState {
   signInWithPassword(params: {
     email: string
     password: string
+    consent?: boolean
   }): Promise<boolean>
-  requestPhoneLoginCode(phone: string, shouldCreateUser?: boolean): Promise<boolean>
-  verifyPhoneLoginCode(params: { phone: string; otp: string }): Promise<boolean>
+  signUpWithPassword(params: {
+    email: string
+    password: string
+    metadata: MobileRegistrationProfileMetadata
+  }): Promise<boolean>
+  requestPhoneLoginCode(phone: string, shouldCreateUser?: boolean, metadata?: MobileRegistrationProfileMetadata): Promise<boolean>
+  verifyPhoneLoginCode(params: { phone: string; otp: string; consent?: boolean }): Promise<boolean>
   requestPhoneBindingCode(phone: string): Promise<boolean>
   verifyPhoneBindingCode(params: { phone: string; otp: string }): Promise<boolean>
   signOut(): Promise<void>
@@ -121,7 +130,7 @@ export function useMobileAuth(config: MobileRuntimeConfig): MobileAuthState {
   }, [client])
 
   const signInWithPassword = useCallback(async (
-    params: { email: string; password: string },
+    params: { email: string; password: string; consent?: boolean },
   ): Promise<boolean> => {
     if (!client) {
       setStatus('config_missing')
@@ -157,6 +166,10 @@ export function useMobileAuth(config: MobileRuntimeConfig): MobileAuthState {
       setSession(data.session)
       setUser(data.user)
       setStatus(data.session ? 'signed_in' : 'signed_out')
+      if (data.session && params.consent) {
+        const { data: updated } = await client.auth.updateUser({ data: buildMobileLegalConsentMetadata() })
+        if (updated.user) setUser(updated.user)
+      }
       return Boolean(data.session)
     } catch (error) {
       setStatus('error')
@@ -165,9 +178,52 @@ export function useMobileAuth(config: MobileRuntimeConfig): MobileAuthState {
     }
   }, [client])
 
+  const signUpWithPassword = useCallback(async (params: {
+    email: string
+    password: string
+    metadata: MobileRegistrationProfileMetadata
+  }): Promise<boolean> => {
+    if (!client) {
+      setStatus('config_missing')
+      setErrorMessage('服务暂不可用，请稍后再试。')
+      return false
+    }
+    const email = params.email.trim().toLowerCase()
+    if (!email || !params.password) {
+      setStatus('signed_out')
+      setErrorMessage('请输入邮箱和密码。')
+      return false
+    }
+    setStatus('signing_up')
+    setErrorMessage(null)
+    try {
+      const { data, error } = await client.auth.signUp({
+        email,
+        password: params.password,
+        options: { data: params.metadata },
+      })
+      if (error) {
+        setStatus('signed_out')
+        setErrorMessage(toMobileProductMessage(error, 'register'))
+        return false
+      }
+      await rememberLastAuthEmail(email)
+      setLastEmail(email)
+      setSession(data.session)
+      setUser(data.user)
+      setStatus(data.session ? 'signed_in' : 'signed_out')
+      return Boolean(data.session)
+    } catch (error) {
+      setStatus('error')
+      setErrorMessage(toMobileProductMessage(error, 'register'))
+      return false
+    }
+  }, [client])
+
   const requestPhoneLoginCode = useCallback(async (
     phone: string,
     shouldCreateUser = false,
+    metadata?: MobileRegistrationProfileMetadata,
   ): Promise<boolean> => {
     if (!client) {
       setStatus('config_missing')
@@ -180,7 +236,7 @@ export function useMobileAuth(config: MobileRuntimeConfig): MobileAuthState {
     try {
       const { error } = await client.auth.signInWithOtp({
         phone,
-        options: { shouldCreateUser },
+        options: { shouldCreateUser, data: metadata },
       })
       setStatus('signed_out')
       if (error) {
@@ -196,7 +252,7 @@ export function useMobileAuth(config: MobileRuntimeConfig): MobileAuthState {
   }, [client])
 
   const verifyPhoneLoginCode = useCallback(async (
-    params: { phone: string; otp: string },
+    params: { phone: string; otp: string; consent?: boolean },
   ): Promise<boolean> => {
     if (!client) {
       setStatus('config_missing')
@@ -221,6 +277,10 @@ export function useMobileAuth(config: MobileRuntimeConfig): MobileAuthState {
       setSession(data.session)
       setUser(data.user)
       setStatus('signed_in')
+      if (params.consent) {
+        const { data: updated } = await client.auth.updateUser({ data: buildMobileLegalConsentMetadata() })
+        if (updated.user) setUser(updated.user)
+      }
       return true
     } catch (error) {
       setStatus('error')
@@ -338,6 +398,7 @@ export function useMobileAuth(config: MobileRuntimeConfig): MobileAuthState {
     lastEmail,
     tokenProvider,
     signInWithPassword,
+    signUpWithPassword,
     requestPhoneLoginCode,
     verifyPhoneLoginCode,
     requestPhoneBindingCode,

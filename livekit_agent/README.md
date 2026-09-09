@@ -97,7 +97,7 @@
 
 1. `DashScope chat/completions`
    - 用于 communication rewrite
-2. `DashScope realtime TTS`
+2. `DashScope realtime TTS`（默认 `qwen3-tts-flash-realtime`，可通过 `DASHSCOPE_TTS_MODEL` 切换到同一实时协议兼容的阿里云模型，例如 `cosyvoice-v3-flash`；`ALIYUN_TTS_MODEL` 为兼容别名）
    - worker 已会把 assistant reply 合成为 LiveKit 房间音轨
 3. `DashScope realtime ASR`
    - 代码路径已经接进 worker，并开始监听房间里的麦克风音频
@@ -177,7 +177,7 @@ sudo docker compose up -d livekit-server
 当前建议显式使用可追踪的官方镜像 tag，而不是镜像站的 `latest`。仓库默认已切到：
 
 ```bash
-LIVEKIT_SERVER_IMAGE=docker.m.daocloud.io/livekit/livekit-server:v1.10.1
+LIVEKIT_SERVER_IMAGE=docker.m.daocloud.io/livekit/livekit-server:v1.13.6
 ```
 
 这样做的原因是：当 `self-hosted livekit-server -> Agents worker registration` 出现异常时，我们需要先排除“镜像站 latest 漂移”这类基础设施噪音。
@@ -340,7 +340,7 @@ cd frontend && NEXT_PUBLIC_API_URL=http://127.0.0.1:3201 NEXT_PUBLIC_RTC_EXECUTI
 
 当前应以这些文档为准：
 
-- [VOXFLAME_PRODUCT_PRD_2026-03-24.md](/home/ubuntu/VoxFlame-Agent/docs/VOXFLAME_PRODUCT_PRD_2026-03-24.md)
+- [VOXFLAME_PRODUCT_PRD_2026-03-24.md](/home/ubuntu/VoxFlame-Agent/research/product-engineering/VOXFLAME_PRODUCT_PRD_2026-03-24.md)
 - [VOXFLAME_LIVEKIT_MEMORY_BEST_PRACTICES_2026-04-05.md](/home/ubuntu/VoxFlame-Agent/research/voice-agent/VOXFLAME_LIVEKIT_MEMORY_BEST_PRACTICES_2026-04-05.md)
 - [.tasks/current.md](/home/ubuntu/VoxFlame-Agent/.tasks/current.md)
 

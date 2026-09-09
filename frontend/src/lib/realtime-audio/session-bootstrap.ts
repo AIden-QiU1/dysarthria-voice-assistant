@@ -1,5 +1,5 @@
 import { config } from '@/lib/config'
-import { getValidToken } from '@/lib/supabase/client'
+import { getAccessToken } from '@/lib/supabase/client'
 import type {
   RtcExecutionBackend,
   RtcSessionIntent,
@@ -14,7 +14,7 @@ function buildApiUrl(path: string): string {
 export async function buildAuthorizedJsonHeaders(
   accessToken?: string,
 ): Promise<Record<string, string>> {
-  const token = await getValidToken() || accessToken
+  const token = await getAccessToken() || accessToken
   if (!token) {
     throw new Error('当前登录态还没有准备好，请刷新页面后再试。')
   }

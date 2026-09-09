@@ -6,7 +6,6 @@ export type RtcSurface =
   | 'communication_workspace'
   | 'training_workspace'
   | 'memory_workspace'
-  | 'pwa_quick_talk'
   | 'mobile_workbench'
   | 'desktop_companion'
 

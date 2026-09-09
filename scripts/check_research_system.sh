@@ -16,6 +16,7 @@ required_files=(
   "research/OUTCOME_REVIEW.md"
   "research/PIPELINE.yaml"
   "research/FEEDBACK_REGISTRY.yaml"
+  "research/HARNESS_RULES.yaml"
   "research/evidence/RO-000.yaml"
   "research/outcome-reviews/RO-000.md"
   "research/templates/RESEARCH_OPPORTUNITY_TEMPLATE.md"
@@ -79,22 +80,9 @@ for status in adopt validate hold reject; do
   fi
 done
 
-retired_docs=(
-  "docs/FASTER_WHISPER_MEMORY_AND_CONTEXT_ESSENCE_2026-04-14.md"
-  "docs/EVER_OS_MEMORY_AND_CONTEXT_ESSENCE_2026-04-14.md"
-  "docs/VOICEITT_FEATURE_SETTINGS_ANALYSIS_AND_VOXFLAME_INSPIRATION_2026-05-15.md"
-  "docs/VOXFLAME_APP_COMPANION_BEST_PRACTICES_AND_OPPORTUNITY_2026-05-04.md"
-  "docs/VOXFLAME_FULLSTACK_ARCHITECTURE_LEARNING_GUIDE_2026-04-29.md"
-  "docs/VOXFLAME_LIVEKIT_MEMORY_BEST_PRACTICES_2026-04-05.md"
-  "docs/VOXFLAME_REHAB_THERAPY_PRODUCT_MAPPING_BY_ETIOLOGY_2026-05-15.md"
-  "docs/VOXFLAME_RESTSEND_RUST_STACK_AND_HARDWARE_AUDIO_BRIDGE_RESEARCH_2026-05-16.md"
-)
-
-for rel in "${retired_docs[@]}"; do
-  if [[ -e "${ROOT_DIR}/${rel}" ]]; then
-    echo "Retired research path has returned: ${rel}" >&2
-    exit 1
-  fi
-done
+if [[ -e "${ROOT_DIR}/docs" ]]; then
+  echo "Legacy docs directory has returned; use research/ as the only documentation root." >&2
+  exit 1
+fi
 
 echo "Research system check passed at CLEAR-VOX-MODEL ${actual_commit}."
