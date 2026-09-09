@@ -1,6 +1,6 @@
 # 当前任务状态
 
-> 最后更新：2026-09-08。只记录仍需执行或验收的事项；完成历史由 Git 和 `research/` 专项事实源保存。
+> 最后更新：2026-09-09。只记录仍需执行或验收的事项；完成历史由 Git 和 `research/` 专项事实源保存。
 
 ## P0：采集四项需求
 
@@ -12,7 +12,21 @@
 - [ ] 为后台质检补持久状态机和人工审核接口；自动判断只分层或建议重录，不删除原始录音，不直接批准训练导入。
 - [ ] 完成第二品牌接线与全量验证；等待用户提供域名、中文站名、Logo 和主色，且页面、metadata、邮件和下载入口不得出现“燃言”。
 
+## P0：OSS 直下载身份归属
+
+- [x] [私有 account.json 自动同步](../research/product-engineering/OSS_ACCOUNT_IDENTITY_SYNC_2026-09-08.md)：已独立部署后台 timer，覆盖全部注册用户（无录音也生成），邮箱/手机分字段，UUID 保持归属。
+- [ ] 获取 GPU1 当前流水线代码/连接，接入 sidecar 的 schema/UUID/状态/有效期检查，分离本地受限联系人；审计旧 `oss-xxx` 对应关系与划分后重建新 Mix 快照，不直接猜测改名合并。
+- [ ] 长期同步故障告警与大桶 owner 索引优化；当前用 systemd Result/日志检查，未配置外部告警通知。
+
+## P0：长期录音计时发布
+
+- [x] [独立计时账本与累计字段](../research/product-engineering/DURABLE_RECORDING_DURATION_2026-09-08.md)本地实现与隔离验证；Web 待上传不混入云端累计，上传失败保留重试，跨浏览器刷新和错误态已 mock smoke。
+- [ ] 先审核历史去重基线/缺 ID/非法值/无 receipt 的差异并备份，核对 migration history；人工确认后仅应用 `20260908010000`，再发布 Backend/Web。不得恢复臆测 19 小时，禁止广域 db push/repair。
+- [ ] 用同一测试账号完成真实双设备与 Native 上传/重试/新录音验收；普通清理不扣累计、账号注销清除账本仅在隔离或专用测试账号验证。现有原生页面暂无累计卡，未声称已完成原生展示。
+
 ## P0：实时并发与扩容
+
+- [x] 沟通链路补充阿里云 TTS 模型选择：LiveKit Agent 支持 `DASHSCOPE_TTS_MODEL`（兼容别名 `ALIYUN_TTS_MODEL`），默认模型保持 `qwen3-tts-flash-realtime`；已增加配置回归测试。切换到具体模型前仍需用对应 DashScope 账号/区域做真实音频 smoke。
 
 - [x] 单 Agent Worker 8 路完整 RTC 链路通过；生产保护值已收口为 8 active jobs、4 个性化 ASR、4 realtime fallback、8 LLM、3 TTS。
 - [x] LiveKit Agents `1.7.1`、Server `1.13.6` 已完成代码升级与生产验证；每周版本检查只创建提醒，不自动升级。
@@ -32,6 +46,11 @@
 - [ ] 真实短信注册、再次登录与 Android smoke；注册强化必须同时兼容 Web、Mobile token 和管理权限。
 - [ ] Android 应用市场提交前，用真机验收注册/登录单一授权勾选、四份法律文件外链和授权版本写回；由中国大陆隐私合规律师复核合并授权是否满足敏感个人信息与商业训练用途要求。
 - [ ] 核验 Supabase 账号认证和数据库的实际部署区域、合同与个人信息出境安排；补齐产品内账号注销闭环后再提交正式审核。
+
+## ESP32 硬件联调（2026-09-09）
+
+- [x] 生成仓库外受限临时凭证，复用现役签发代码和 Agent 调度；签名/房间范围检查、公网 RTC 连接与 Agent 初始化 ACK 通过，探针已断开，未部署。
+- [ ] 同事用官方 ESP32 SDK 完成单设备上行收音/下行播放、ASR/TTS、停止/打断和重连；凭证北京时间 2026-09-09 19:51:50 到期。仅用非敏感测试语句，结束主动断开，不压测；完整硬件验收仍未完成。
 
 ## P1：数据与运行时治理
 
@@ -63,3 +82,9 @@
 - LiveKit Agent：`cd livekit_agent && python3 -m unittest discover tests -v`
 - Mobile：`cd apps/mobile-workbench && npm run check && npm run typecheck`
 - Docker：优先 `bash scripts/docker-rebuild-core-fast.sh` 的最小影响模式；磁盘维护先 `bash scripts/docker_disk_maintenance.sh status`，再用 `prune-safe`。
+
+## 提交归档（2026-09-09）
+
+- 简洁提交说明与推送回复规则已纳入 Harness，并同步三个规则入口。
+- 本轮前端测试（150 项另加 4 项 manifest）、类型/生产构建、Backend 身份/上传测试与构建、Agent 配置测试、隔离数据库并发计时、文档与研究检查通过。真实设备和生产验收未复跑；已有治理 CI 缺脚本问题仍待处理。
+- 本轮范围为现有修改的 Git 提交与推送；不部署、不执行生产迁移。

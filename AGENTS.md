@@ -34,6 +34,8 @@ VoxFlame 面向构音障碍者，第一原则是提升系统对用户意图的�
 - 涉及副作用时使用显式工具、结构化参数、权限边界和清晰退出条件；不让自然语言隐式驱动删除、命令、SQL 或发布。
 - 每次改动都要有对应验证；完成后同步 `.claude-summary.md` 与 `.tasks/current.md`。
 
+- 提交说明只写核心改动，提交/推送回复只给结果、分支、短 hash 与必要风险；详细证据留任务记录，见 [简洁沟通规则](research/AI_ENGINEERING_SYSTEM.md#提交与推送的简洁沟通规则)。
+
 ## UI 全局指导
 
 - UI 改动先读 `research/aiprompts/design-language.md`。
@@ -59,6 +61,8 @@ VoxFlame 面向构音障碍者，第一原则是提升系统对用户意图的�
 - 现役唯一运行时主链：`Frontend LiveKit RTC/Data -> Backend /api/rtc/session/* -> self-hosted livekit-server -> livekit_agent`。
 - 不恢复 WebSocket、TEN 或 Agora 作为平行主链。
 - durable memory 的 owner 是 `backend + workspace snapshot`；LiveKit 只承接 session-local state 和会话原始材料。
+- 账号录音累计时长以数据库独立计时账本为准，不依赖 OSS 文件或可删除语料行；规则见 [长期录音计时](research/product-engineering/DURABLE_RECORDING_DURATION_2026-09-08.md)。
+- OSS 直下载身份映射使用私有 account.json，邮箱/手机分字段、UUID 归属不变；见 [账户映射同步](research/product-engineering/OSS_ACCOUNT_IDENTITY_SYNC_2026-09-08.md)。
 - 已有唯一事实源时，优先封旧入口或 compat，而不是新增平行实现；`compat` 只做迁移适配，必须带退出条件。
 - Agent 改动必须考虑会话隔离、打断、上下文窗口、工具边界、失败恢复和资源上限。
 

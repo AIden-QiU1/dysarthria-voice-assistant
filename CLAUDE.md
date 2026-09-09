@@ -11,6 +11,12 @@
 
 补充约定：
 
+- 提交说明只写核心改动，提交/推送回复只给结果、分支、短 hash 与必要风险；详细证据留任务记录，见 [简洁沟通规则](research/AI_ENGINEERING_SYSTEM.md#提交与推送的简洁沟通规则)。
+
+
+- 账号录音累计时长以数据库独立计时账本为准，不依赖 OSS 文件或可删除语料行；见 [长期录音计时](research/product-engineering/DURABLE_RECORDING_DURATION_2026-09-08.md)。
+- OSS 直下载身份映射使用私有 account.json，邮箱/手机分字段、UUID 归属不变；见 [账户映射同步](research/product-engineering/OSS_ACCOUNT_IDENTITY_SYNC_2026-09-08.md)。
+
 - 工具和 skill 选择拿不准时，按 `本地代码/文档 -> 官方文档 -> skill -> 验证 -> web` 升级。
 - 容器验证默认先用 `docker compose`；若当前机器权限要求更高或普通命令失败，再回退到 `sudo docker compose ...`。
 - Docker 部署优先使用 `scripts/docker-rebuild-core-fast.sh` 的 `env-backend` / `backend` / `frontend` / `core` 最小影响模式，不默认先执行 `docker compose down`；磁盘清理使用 `scripts/docker_disk_maintenance.sh status|prune-safe` 并保留回滚镜像。

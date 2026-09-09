@@ -39,6 +39,10 @@
 
 原始语料进入模型训练前必须再通过独立导出门。现役入口 `backend/scripts/export_audio_target_dataset.ts` 只接受当前授权有效、服务端已准入、用途包含训练、DB upload receipt 与 OSS 活动 manifest 一致、对象大小/类型/ETag 未变化且质量状态未明确拒绝或要求重录的样本。导出必须创建新目录，先在 staging 完整下载和生成 SHA-256，再原子发布版本化快照；不得覆盖既有快照，也不得用 `limit` 静默截断。split 以 contributor 为 speaker 单位确定性生成，禁止同一 contributor 跨 train/validation/test。质量为 `review` 的构音障碍样本可以保留进入快照，明确 `low_confidence`、`retry` 或 `rejected` 的样本只排除出训练快照，不删除原始录音。
 
+账号录音累计时长的持久 owner 是 Backend + 数据库计时明细与累计字段，不是 OSS 对象列表或可删除的语料明细。以账号和稳定 recording ID 幂等入账：同一录音上传重试一次计时，同一句重新录制用新 ID 分别计时。云端确认与入账必须事务一致；本机待确认队列不得混入云端累计。存储迁移、常规清理和单条录音撤回不扣减已确认的投入时长；账号注销清除关联统计。实施与定向发布边界见 [长期录音计时](product-engineering/DURABLE_RECORDING_DURATION_2026-09-08.md)。
+
+OSS 直下载的账户识别使用独立私有 `dataset/<UUID>/account.json` 映射，手机号和邮箱分字段，Auth 为事实源；UUID 保持训练归属，联系方式不进入训练清单。全体注册用户自动同步，GPU 必须校验身份状态和有效期，见 [账户映射同步](product-engineering/OSS_ACCOUNT_IDENTITY_SYNC_2026-09-08.md)。
+
 ### 2.1 环境优于提示词
 
 稳定知识应落在仓库环境里，而不是依赖某一轮对话记忆。
@@ -436,6 +440,13 @@ compat 层必须同时具备：
 
 3. 自动同步关键状态
 - 任务完成后，稳定结论至少同步到 `.claude-summary.md` 和 `.tasks/current.md`；如果是协作规则变化，还要继续同步到 `AGENTS.md`、`CLAUDE.md`、`.github/copilot-instructions.md` 和相关 workflow 文档。
+
+### 提交与推送的简洁沟通规则
+
+- Git 提交说明默认只写一行 `类型: 核心改动`，不附长篇过程、文件清单或测试流水；必要的风险与验证证据留在任务记录。
+- 提交/推送过程只报告关键进度或阻塞；完成回复只给结果、分支和短 commit hash，必要时补一句重要风险，不重复展开修改详情。
+- 简洁不等于省略验证或混淆状态：本地提交、远程推送、部署和数据库迁移分别报告；未成功的动作不得声称完成。
+- 用户要求详细说明时再展开。
 
 ### 6.2 需要继续补强的协作基础设施
 
